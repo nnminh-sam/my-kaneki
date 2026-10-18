@@ -12,9 +12,9 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const user = session ? { email: session.email, name: session.name } : null;
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex h-screen overflow-hidden flex-col md:flex-row">
       <Sidebar mode={mode} user={user} />
-      <main className="flex flex-1 flex-col bg-bg">{children}</main>
+      <main className="flex flex-1 flex-col overflow-hidden bg-bg">{children}</main>
     </div>
   );
 }
