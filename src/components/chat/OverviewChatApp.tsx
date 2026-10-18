@@ -6,42 +6,82 @@ import { Menu, X } from "lucide-react";
 import {
   type ChatSession,
   createNewSession,
+  deleteChatSessionFromApi,
   deriveSessionTitle,
+  fetchChatSessionsFromApi,
   getActiveSessionId,
   loadSavedSessions,
+  renameChatSessionToApi,
+  saveChatSessionToApi,
   saveSessionsToStorage,
   setActiveSessionId,
 } from "@/lib/chat-sessions";
 import { ChatSessionList } from "./ChatSessionList";
 import { AgentChat } from "./AgentChat";
 
-export function OverviewChatApp() {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+interface OverviewChatAppProps {
+  initialSessions?: ChatSession[];
+}
+
+export function OverviewChatApp({ initialSessions }: OverviewChatAppProps) {
+  const [sessions, setSessions] = useState<ChatSession[]>(initialSessions ?? []);
   const [activeId, setActiveId] = useState<string>("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [showMobileSessions, setShowMobileSessions] = useState(false);
 
   // Initialize sessions on client mount
   useEffect(() => {
-    const saved = loadSavedSessions();
-    if (saved.length > 0) {
-      setSessions(saved);
+    let isCancelled = false;
+
+    async function init() {
+      let loadedSessions = initialSessions && initialSessions.length > 0 ? initialSessions : [];
+
+      if (loadedSessions.length === 0) {
+        // Try fetching from database API
+        const apiSessions = await fetchChatSessionsFromApi();
+        if (apiSessions.length > 0) {
+          loadedSessions = apiSessions;
+        } else {
+          // Fall back to localStorage if available
+          const localSaved = loadSavedSessions();
+          if (localSaved.length > 0) {
+            loadedSessions = localSaved;
+            // Sync local sessions to database
+            for (const s of localSaved) {
+              void saveChatSessionToApi(s);
+            }
+          } else {
+            // Create brand new session and persist
+            const initial = createNewSession();
+            loadedSessions = [initial];
+            void saveChatSessionToApi(initial);
+          }
+        }
+      }
+
+      if (isCancelled) return;
+
+      setSessions(loadedSessions);
+      saveSessionsToStorage(loadedSessions);
+
       const savedActiveId = getActiveSessionId();
-      if (savedActiveId && saved.some((s) => s.id === savedActiveId)) {
+      if (savedActiveId && loadedSessions.some((s) => s.id === savedActiveId)) {
         setActiveId(savedActiveId);
       } else {
-        setActiveId(saved[0].id);
-        setActiveSessionId(saved[0].id);
+        const firstId = loadedSessions[0]?.id ?? "";
+        setActiveId(firstId);
+        if (firstId) setActiveSessionId(firstId);
       }
-    } else {
-      const initial = createNewSession();
-      setSessions([initial]);
-      setActiveId(initial.id);
-      saveSessionsToStorage([initial]);
-      setActiveSessionId(initial.id);
+
+      setIsLoaded(true);
     }
-    setIsLoaded(true);
-  }, []);
+
+    void init();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialSessions]);
 
   const handleSelectSession = (id: string) => {
     setActiveId(id);
@@ -57,9 +97,15 @@ export function OverviewChatApp() {
     saveSessionsToStorage(updated);
     setActiveSessionId(newSession.id);
     setShowMobileSessions(false);
+
+    // Persist new session into database
+    void saveChatSessionToApi(newSession);
   };
 
   const handleDeleteSession = (id: string) => {
+    // Delete from database
+    void deleteChatSessionFromApi(id);
+
     const remaining = sessions.filter((s) => s.id !== id);
     if (remaining.length === 0) {
       const fresh = createNewSession();
@@ -67,6 +113,7 @@ export function OverviewChatApp() {
       setActiveId(fresh.id);
       saveSessionsToStorage([fresh]);
       setActiveSessionId(fresh.id);
+      void saveChatSessionToApi(fresh);
     } else {
       setSessions(remaining);
       saveSessionsToStorage(remaining);
@@ -76,6 +123,21 @@ export function OverviewChatApp() {
       }
     }
   };
+
+  const handleRenameSession = useCallback((sessionId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+
+    const now = new Date().toISOString();
+    setSessions((prev) => {
+      const updated = prev.map((s) => (s.id === sessionId ? { ...s, title: trimmed, updatedAt: now } : s));
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+
+    // Persist rename into database
+    void renameChatSessionToApi(sessionId, trimmed);
+  }, []);
 
   const handleUpdateSessionMessages = useCallback((sessionId: string, newMessages: UIMessage[]) => {
     setSessions((prev) => {
@@ -93,16 +155,25 @@ export function OverviewChatApp() {
 
       const currentTitle =
         existing.title === "New Chat" ? deriveSessionTitle(newMessages, existing.title) : existing.title;
-      const updated = prev.map((s) => {
-        if (s.id !== sessionId) return s;
-        return {
-          ...s,
-          title: currentTitle,
-          messages: newMessages,
-          updatedAt: new Date().toISOString(),
-        };
-      });
+      const now = new Date().toISOString();
+      const updatedSession: ChatSession = {
+        ...existing,
+        title: currentTitle,
+        messages: newMessages,
+        updatedAt: now,
+      };
+
+      const updated = prev.map((s) => (s.id === sessionId ? updatedSession : s));
       saveSessionsToStorage(updated);
+
+      // Persist conversation update to database
+      void saveChatSessionToApi({
+        id: sessionId,
+        title: currentTitle,
+        messages: newMessages,
+        updatedAt: now,
+      });
+
       return updated;
     });
   }, []);
@@ -140,6 +211,7 @@ export function OverviewChatApp() {
           activeSessionId={activeSession?.id ?? ""}
           onSelectSession={handleSelectSession}
           onNewSession={handleNewSession}
+          onRenameSession={handleRenameSession}
           onDeleteSession={handleDeleteSession}
         />
       </div>
@@ -159,6 +231,7 @@ export function OverviewChatApp() {
             key={activeSession.id}
             session={activeSession}
             onUpdateSessionMessages={handleUpdateSessionMessages}
+            onRenameSession={handleRenameSession}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted">

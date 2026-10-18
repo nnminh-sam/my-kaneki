@@ -72,3 +72,65 @@ export function deriveSessionTitle(messages: UIMessage[], fallback = "New Chat")
   }
   return fallback;
 }
+
+/** Fetch chat sessions from database via API */
+export async function fetchChatSessionsFromApi(): Promise<ChatSession[]> {
+  try {
+    const res = await fetch("/api/chat/sessions", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { sessions?: ChatSession[] };
+    return data.sessions ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Save or update chat session in database via API */
+export async function saveChatSessionToApi(session: {
+  id: string;
+  title?: string;
+  messages?: UIMessage[];
+  createdAt?: string;
+  updatedAt?: string;
+}): Promise<ChatSession | null> {
+  try {
+    const res = await fetch("/api/chat/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(session),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { session?: ChatSession };
+    return data.session ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Rename chat session in database via API */
+export async function renameChatSessionToApi(id: string, title: string): Promise<ChatSession | null> {
+  try {
+    const res = await fetch(`/api/chat/sessions/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { session?: ChatSession };
+    return data.session ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Delete a chat session from database via API */
+export async function deleteChatSessionFromApi(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/chat/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

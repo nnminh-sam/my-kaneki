@@ -2,17 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import type { UIMessage } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   AlertCircle,
   Bot,
+  Check,
   CheckSquare,
   FileText,
   Loader2,
+  Pencil,
   Send,
   ShieldCheck,
   Sparkles,
   Square,
+  X,
 } from "lucide-react";
 import type { ChatSession } from "@/lib/chat-sessions";
 import { ChatMessage } from "./ChatMessage";
@@ -21,6 +24,7 @@ import { OllamaUsageModal } from "./OllamaUsageModal";
 interface AgentChatProps {
   session: ChatSession;
   onUpdateSessionMessages: (sessionId: string, messages: UIMessage[]) => void;
+  onRenameSession?: (sessionId: string, newTitle: string) => void;
 }
 
 const PROMPT_SUGGESTIONS = [
@@ -41,10 +45,25 @@ const PROMPT_SUGGESTIONS = [
   },
 ];
 
-export function AgentChat({ session, onUpdateSessionMessages }: AgentChatProps) {
+export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }: AgentChatProps) {
   const [input, setInput] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState(session.title || "New Chat");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setTitleInput(session.title || "New Chat");
+    setIsEditingTitle(false);
+  }, [session.id, session.title]);
+
+  const handleSaveTitle = () => {
+    const trimmed = titleInput.trim();
+    if (trimmed && onRenameSession) {
+      onRenameSession(session.id, trimmed);
+    }
+    setIsEditingTitle(false);
+  };
 
   const latestMessagesRef = useRef<UIMessage[]>(session.messages);
   const onUpdateRef = useRef(onUpdateSessionMessages);
@@ -56,6 +75,10 @@ export function AgentChat({ session, onUpdateSessionMessages }: AgentChatProps) 
   const { messages, sendMessage, status, stop, error } = useChat({
     id: session.id,
     messages: session.messages,
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: { sessionId: session.id },
+    }),
     onFinish: ({ messages: updatedMessages }) => {
       latestMessagesRef.current = updatedMessages;
       onUpdateRef.current(session.id, updatedMessages);
@@ -127,7 +150,54 @@ export function AgentChat({ session, onUpdateSessionMessages }: AgentChatProps) 
             <Bot className="h-4 w-4" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-fg">{session.title || "New Chat"}</h1>
+            {isEditingTitle ? (
+              <div className="flex items-center gap-1.5 py-0.5">
+                <input
+                  type="text"
+                  value={titleInput}
+                  onChange={(e) => setTitleInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveTitle();
+                    if (e.key === "Escape") setIsEditingTitle(false);
+                  }}
+                  autoFocus
+                  className="rounded border border-accent bg-bg px-1.5 py-0.5 text-xs font-semibold text-fg outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveTitle}
+                  title="Save title"
+                  className="p-1 rounded text-ok hover:bg-ok-soft cursor-pointer transition-colors"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTitle(false)}
+                  title="Cancel"
+                  className="p-1 rounded text-muted hover:text-fg hover:bg-surface-subtle cursor-pointer transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 group/header-title">
+                <h1 className="text-sm font-semibold text-fg">{session.title || "New Chat"}</h1>
+                {onRenameSession && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTitleInput(session.title || "New Chat");
+                      setIsEditingTitle(true);
+                    }}
+                    title="Rename chat"
+                    className="opacity-0 group-hover/header-title:opacity-100 text-muted hover:text-accent p-0.5 rounded transition-opacity cursor-pointer"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
             <p className="text-[11px] text-muted flex items-center gap-1.5">
               <span>Ollama Cloud Agent</span>
               <span>•</span>

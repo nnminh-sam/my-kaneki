@@ -2,6 +2,7 @@ import { convertToModelMessages, isStepCount, streamText, type UIMessage } from 
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { currentOwnerId } from "@/lib/owner";
 import { createAgentTools } from "@/lib/agent-tools";
+import { updateSessionMessages } from "@/lib/chat-db";
 
 export const maxDuration = 60;
 
@@ -30,8 +31,16 @@ export async function POST(req: Request) {
   if (owner === null) return new Response("Unauthorized", { status: 401 });
 
   let messages: UIMessage[];
+  let sessionId: string | undefined;
+
   try {
-    ({ messages } = (await req.json()) as { messages: UIMessage[] });
+    const body = (await req.json()) as {
+      messages: UIMessage[];
+      id?: string;
+      sessionId?: string;
+    };
+    messages = body.messages;
+    sessionId = body.sessionId ?? body.id;
   } catch {
     return new Response("Invalid JSON body", { status: 400 });
   }
@@ -46,7 +55,20 @@ export async function POST(req: Request) {
     stopWhen: isStepCount(5),
   });
 
+  // Consume stream on server to guarantee completion and persistence even on client disconnect
+  result.consumeStream();
+
   return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    onEnd: async ({ messages: finalMessages }) => {
+      if (sessionId) {
+        try {
+          await updateSessionMessages(owner, sessionId, finalMessages);
+        } catch (err) {
+          console.error("Failed to persist chat session on stream finish:", err);
+        }
+      }
+    },
     onError: (err) => (err instanceof Error ? err.message : "Agent error"),
   });
 }

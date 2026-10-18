@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/auth/auth.test.ts",
+    "test": "node --import tsx --test src/lib/auth/auth.test.ts src/lib/chat-db.test.ts",
     "db:smoke": "node --env-file=.env.local scripts/db-smoke.mjs",
     "db:migrate": "node --env-file=.env.local --import tsx scripts/db-migrate.ts"
   },
