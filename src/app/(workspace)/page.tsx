@@ -1,3 +1,9 @@
+import { OverviewChatApp } from "@/components/chat/OverviewChatApp";
+
 export default function OverviewPage() {
-  return <div className="flex-1 p-6" />;
+  return (
+    <div className="flex flex-1 h-full w-full overflow-hidden">
+      <OverviewChatApp />
+    </div>
+  );
 }

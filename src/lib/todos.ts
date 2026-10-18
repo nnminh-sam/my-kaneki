@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import type { AuditActor } from "./audit";
 
 export type Todo = { id: string; title: string; done: boolean; created_at: string };
 
@@ -35,10 +36,26 @@ export async function listTodos(
   return rows.map(rowToTodo);
 }
 
-export async function addTodo(ownerId: string, title: string): Promise<boolean> {
+export async function addTodo(
+  ownerId: string,
+  title: string,
+  actor: AuditActor = "user",
+): Promise<boolean> {
   const text = title.trim().slice(0, MAX_TODO_LENGTH);
   if (!text) return false;
-  await getDb().query("insert into todos (owner_id, title) values ($1, $2)", [ownerId, text]);
+  // Todo + audit row commit or roll back together; the CTE lets the audit row capture the generated id.
+  await getDb().transaction([
+    {
+      text: `with ins as (
+               insert into todos (owner_id, title) values ($1, $2) returning id, title, done
+             )
+             insert into audit_log (action, entity_type, entity_id, actor, payload)
+             select 'todo.create', 'todo', id::text, $3,
+                    jsonb_build_object('owner_id', $1::text, 'after', jsonb_build_object('title', title, 'done', done))
+             from ins`,
+      params: [ownerId, text, actor],
+    },
+  ]);
   return true;
 }
 

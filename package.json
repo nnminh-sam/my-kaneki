@@ -10,17 +10,22 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test src/lib/auth/auth.test.ts",
-    "db:smoke": "node --env-file-if-exists=.env.local scripts/db-smoke.mjs",
-    "db:migrate": "node --env-file-if-exists=.env.local --import tsx scripts/db-migrate.ts"
+    "db:smoke": "node --env-file=.env.local scripts/db-smoke.mjs",
+    "db:migrate": "node --env-file=.env.local --import tsx scripts/db-migrate.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.71",
+    "@ai-sdk/react": "^4.0.147",
     "@neondatabase/serverless": "^1.1.0",
+    "ai": "^7.0.143",
     "lucide-react": "^1.55.0",
     "next": "16.3.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -28,6 +33,7 @@
     "@types/node": "^24.19.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",

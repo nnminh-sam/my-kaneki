@@ -1,5 +1,7 @@
 "use server";
 
+import { recordAudit, type AuditActor } from "@/lib/audit";
+
 export type NoteResult =
   | { ok: true; content: string; sha: string | null }
   | { ok: false; code: ErrorCode; error: string };
@@ -132,6 +134,7 @@ export async function saveNote(
   repoPath: string,
   content: string,
   baseSha?: string | null,
+  actor: AuditActor = "user",
 ): Promise<SaveResult> {
   const cfg = config();
   if (!cfg) return { ok: false, code: "CONFIG", error: "Missing GITHUB_PAT / GITHUB_OWNER / GITHUB_REPO env vars." };
@@ -171,6 +174,23 @@ export async function saveNote(
     }
     const newSha = (body?.content as { sha?: string } | undefined)?.sha;
     const cSha = (body?.commit as { sha?: string } | undefined)?.sha;
+    // Failures above returned early, so the audit row is written only after GitHub accepted the PUT.
+    // A GitHub commit can't join a DB transaction, so a failed audit insert is logged, not surfaced.
+    try {
+      await recordAudit({
+        action: sha ? "note.update" : "note.create",
+        entityType: "github_file",
+        entityId: path,
+        actor,
+        payload: {
+          before: { sha: sha ?? null },
+          after: { sha: newSha ?? null, commitSha: cSha ?? null, bytes: Buffer.byteLength(content, "utf-8"), content },
+          branch: cfg.branch ?? null,
+        },
+      });
+    } catch (auditErr) {
+      console.error("audit_log write failed for", path, auditErr);
+    }
     return {
       ok: true,
       sha: newSha ?? "",

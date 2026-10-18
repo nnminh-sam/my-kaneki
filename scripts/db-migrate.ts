@@ -1,6 +1,9 @@
 // Applies migrations/*.sql over the direct (or pooled) connection. Run with `npm run db:migrate`.
-import { Client } from "@neondatabase/serverless";
+import ws from "ws";
+import { Client, neonConfig } from "@neondatabase/serverless";
 import { migrate } from "../src/lib/migrate";
+
+neonConfig.webSocketConstructor = ws;
 
 async function main() {
   const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
