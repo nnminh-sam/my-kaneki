@@ -12,6 +12,9 @@ import {
   sessionCookieOptions,
 } from "@/lib/auth";
 import { logIn, signUp as signUpUser, type AuthOutcome } from "@/lib/auth/users";
+import { currentOwnerId } from "@/lib/owner";
+import { addTodo, setTodoDone } from "@/lib/todos";
+import { revalidatePath } from "next/cache";
 
 async function secureCookie() {
   return isSecureRequest((await headers()).get("x-forwarded-proto"));
@@ -54,4 +57,18 @@ export async function login(formData: FormData) {
 export async function logout() {
   (await cookies()).set(SESSION_COOKIE, "", clearedSessionCookieOptions(await secureCookie()));
   redirect("/login");
+}
+
+export async function addTodoAction(formData: FormData) {
+  const owner = await currentOwnerId();
+  if (owner === null) redirect("/login");
+  await addTodo(owner, field(formData, "title"));
+  revalidatePath("/todos");
+}
+
+export async function toggleTodoAction(formData: FormData) {
+  const owner = await currentOwnerId();
+  if (owner === null) redirect("/login");
+  await setTodoDone(owner, field(formData, "id"), field(formData, "done") === "true");
+  revalidatePath("/todos");
 }
