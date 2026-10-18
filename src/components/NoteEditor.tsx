@@ -535,10 +535,11 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
               onClick={() => void checkRemoteSync()}
               disabled={isBusy}
               title="Check remote sync status"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted hover:text-fg disabled:opacity-50"
+              aria-label="Check remote sync status"
+              className="inline-flex shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-surface p-1.5 text-xs text-muted hover:text-fg disabled:opacity-50 sm:px-2.5 sm:py-1.5"
             >
               <RefreshCw className="h-3.5 w-3.5" />
-              Check
+              <span className="hidden sm:inline">Check</span>
             </button>
 
             {/* Refresh button when out of sync */}
@@ -547,9 +548,12 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
                 type="button"
                 onClick={() => void loadNote(currentPath)}
                 disabled={isBusy}
-                className="inline-flex items-center gap-1 rounded-md border border-danger/30 bg-danger-soft px-2.5 py-1 text-xs font-medium text-danger hover:opacity-90 disabled:opacity-50"
+                title="Refresh note from remote"
+                aria-label="Refresh note from remote"
+                className="inline-flex shrink-0 items-center justify-center gap-1 rounded-md border border-danger/30 bg-danger-soft p-1.5 text-xs font-medium text-danger hover:opacity-90 disabled:opacity-50 sm:px-2.5 sm:py-1"
               >
-                Refresh
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
             )}
 
@@ -558,17 +562,19 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
               type="button"
               onClick={handleSave}
               disabled={isBusy || (!isDirty && sha !== null)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              title={saving ? "Saving note…" : "Save Note"}
+              aria-label={saving ? "Saving note…" : "Save Note"}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent p-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3.5 sm:py-1.5"
             >
               {saving ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Saving…
+                  <span className="hidden sm:inline">Saving…</span>
                 </>
               ) : (
                 <>
                   <Save className="h-3.5 w-3.5" />
-                  Save Note
+                  <span className="hidden sm:inline">Save Note</span>
                 </>
               )}
             </button>

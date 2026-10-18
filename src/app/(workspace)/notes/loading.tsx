@@ -43,8 +43,8 @@ export default function NotesLoading() {
                 <Skeleton className="h-6 w-20 rounded-md" />
               </div>
               <div className="flex items-center gap-2">
-                <Skeleton className="h-7 w-24 rounded-md" />
-                <Skeleton className="h-7 w-20 rounded-md bg-accent/40" />
+                <Skeleton className="h-7 w-7 rounded-md sm:w-16" />
+                <Skeleton className="h-7 w-7 rounded-md bg-accent/40 sm:w-24" />
               </div>
             </div>
 
