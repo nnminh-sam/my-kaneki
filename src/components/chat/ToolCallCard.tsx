@@ -6,6 +6,7 @@ import {
   CheckSquare,
   ExternalLink,
   FileText,
+  FolderKanban,
   Loader2,
   Wrench,
 } from "lucide-react";
@@ -26,8 +27,8 @@ export function ToolCallCard({
   errorText,
 }: ToolCallCardProps) {
   const isRunning = state === "call" || state === "input-streaming";
-  const isSuccess = output?.success === true;
-  const isFailed = state === "error" || (output && output.success === false) || !!errorText;
+  const isFailed = state === "error" || output?.success === false || !!errorText;
+  const isSuccess = !isFailed && (output?.success === true || state === "result");
   const errorMessage =
     (output?.error as string | undefined) || errorText || "Action failed to execute.";
 
@@ -38,12 +39,17 @@ export function ToolCallCard({
   let toolIcon = <Wrench className="h-4 w-4 text-accent" />;
   let label = toolName;
 
+  const isPmTool = /task|project|issue|ticket|pm|sprint/i.test(toolName);
+
   if (toolName === "addTodo") {
     toolIcon = <CheckSquare className="h-4 w-4 text-accent" />;
     label = "Add Todo";
   } else if (toolName === "updateNote") {
     toolIcon = <FileText className="h-4 w-4 text-accent" />;
     label = "Update Note";
+  } else if (isPmTool) {
+    toolIcon = <FolderKanban className="h-4 w-4 text-accent" />;
+    label = toolName.replace(/^(my[-_]?pm)[-_:]?/i, "PM: ").replace(/_/g, " ");
   }
 
   return (
@@ -102,6 +108,27 @@ export function ToolCallCard({
                 <span>View GitHub Commit</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
+            )}
+          </div>
+        )}
+
+        {toolName !== "addTodo" && toolName !== "updateNote" && (
+          <div className="flex flex-col gap-1.5 text-xs">
+            {Object.keys(input).length > 0 && (
+              <div className="rounded bg-surface p-2 font-mono text-[11px] text-muted overflow-x-auto">
+                <span className="text-fg font-semibold not-mono block mb-1">Parameters:</span>
+                {JSON.stringify(input, null, 2)}
+              </div>
+            )}
+            {output && !isFailed && (
+              <div className="rounded bg-surface p-2 font-mono text-[11px] text-muted overflow-x-auto max-h-48">
+                <span className="text-fg font-semibold not-mono block mb-1">Result:</span>
+                {typeof output === "string"
+                  ? output
+                  : "content" in output && Array.isArray((output as any).content)
+                  ? (output as any).content.map((c: any) => c.text || JSON.stringify(c)).join("\n")
+                  : JSON.stringify(output, null, 2)}
+              </div>
             )}
           </div>
         )}

@@ -3,6 +3,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { currentOwnerId } from "@/lib/owner";
 import { createAgentTools } from "@/lib/agent-tools";
 import { updateSessionMessages } from "@/lib/chat-db";
+import { getPmAgentMcpTools } from "@/lib/mcp";
 
 export const maxDuration = 60;
 
@@ -45,13 +46,26 @@ export async function POST(req: Request) {
     return new Response("Invalid JSON body", { status: 400 });
   }
 
+  const { tools: mcpTools, instructions: mcpInstructions, close: closeMcp } = await getPmAgentMcpTools();
+
+  const baseSystem =
+    "You are the assistant for a personal workspace. Use addTodo and updateNote when asked. " +
+    "If a tool returns success:false, tell the user what failed and do not claim it worked.";
+
+  const system = mcpInstructions
+    ? `${baseSystem}\n\nProject management system instructions:\n${mcpInstructions}`
+    : Object.keys(mcpTools).length > 0
+    ? `${baseSystem} You also have access to connected my_pm project management tools.`
+    : baseSystem;
+
   const result = streamText({
     model: ollama(process.env.OLLAMA_MODEL || "gpt-oss:120b"),
-    system:
-      "You are the assistant for a personal workspace. Use addTodo and updateNote when asked. " +
-      "If a tool returns success:false, tell the user what failed and do not claim it worked.",
+    system,
     messages: await convertToModelMessages(messages),
-    tools: createAgentTools(owner),
+    tools: {
+      ...createAgentTools(owner),
+      ...mcpTools,
+    },
     stopWhen: isStepCount(5),
   });
 
@@ -61,6 +75,7 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
     onEnd: async ({ messages: finalMessages }) => {
+      await closeMcp();
       if (sessionId) {
         try {
           await updateSessionMessages(owner, sessionId, finalMessages);
@@ -69,6 +84,9 @@ export async function POST(req: Request) {
         }
       }
     },
-    onError: (err) => (err instanceof Error ? err.message : "Agent error"),
+    onError: (err) => {
+      void closeMcp();
+      return err instanceof Error ? err.message : "Agent error";
+    },
   });
 }

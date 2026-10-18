@@ -9,11 +9,12 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/auth/auth.test.ts src/lib/chat-db.test.ts",
+    "test": "node --import tsx --test src/lib/auth/auth.test.ts src/lib/chat-db.test.ts src/lib/mcp.test.ts",
     "db:smoke": "node --env-file=.env.local scripts/db-smoke.mjs",
     "db:migrate": "node --env-file=.env.local --import tsx scripts/db-migrate.ts"
   },
   "dependencies": {
+    "@ai-sdk/mcp": "^2.0.78",
     "@ai-sdk/openai-compatible": "^3.0.71",
     "@ai-sdk/react": "^4.0.147",
     "@neondatabase/serverless": "^1.1.0",
