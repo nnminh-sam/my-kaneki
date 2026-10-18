@@ -23,11 +23,15 @@ import {
 } from "lucide-react";
 import {
   checkBranch,
+  copyFile,
+  deleteFile,
   getNote,
   getRepoTree,
+  renameFile,
   saveNote,
   type TreeFileItem,
 } from "@/actions/github";
+import { ActionModal, type ModalType } from "@/components/ActionModal";
 import { FileTree } from "@/components/FileTree";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 
@@ -36,6 +40,18 @@ interface NoteEditorProps {
 }
 
 type EditorViewMode = "edit" | "preview" | "split";
+
+interface ModalState {
+  isOpen: boolean;
+  type: ModalType;
+  title: string;
+  description?: string;
+  defaultValue?: string;
+  inputPlaceholder?: string;
+  confirmText?: string;
+  isDestructive?: boolean;
+  onConfirm: (inputValue?: string) => Promise<void> | void;
+}
 
 export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
   const [currentPath, setCurrentPath] = useState(repoPath);
@@ -60,10 +76,26 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
+    commitSha?: string;
+    commitUrl?: string;
   } | null>(null);
+
+  // In-app modal state
+  const [modalState, setModalState] = useState<ModalState>({
+    isOpen: false,
+    type: "prompt",
+    title: "",
+    onConfirm: () => {},
+  });
+  const [modalLoading, setModalLoading] = useState(false);
 
   const isTypingRef = useRef(false);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeModal = () => {
+    if (modalLoading) return;
+    setModalState((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Load branch information
   const loadBranch = useCallback(async () => {
@@ -166,7 +198,9 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
         setIsOutOfSync(false);
         setStatusMessage({
           type: "success",
-          text: `Saved & committed to ${branchInfo?.branch || "GitHub"}`,
+          text: `Committed & pushed to ${branchInfo?.branch || "GitHub"}`,
+          commitSha: res.commitSha,
+          commitUrl: res.commitUrl,
         });
         void loadTree();
       } else {
@@ -178,19 +212,202 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
     });
   };
 
-  const handleNewFile = () => {
-    const name = window.prompt("Enter new file path (e.g. notes/todo.md):", "notes/new-note.md");
-    if (!name) return;
-    const clean = name.trim();
-    if (!clean.endsWith(".md") && !clean.endsWith(".markdown")) {
-      alert("Note must end in .md or .markdown");
-      return;
-    }
-    setCurrentPath(clean);
+  // Modal-based File Operations:
+
+  const handleNewFile = (folderPrefix?: string) => {
+    const defaultVal = folderPrefix ? `${folderPrefix}/new-note.md` : "notes/new-note.md";
+    setModalState({
+      isOpen: true,
+      type: "prompt",
+      title: "Create New Markdown Note",
+      description: "Enter a relative repository path ending in .md or .markdown",
+      defaultValue: defaultVal,
+      inputPlaceholder: "notes/my-note.md",
+      confirmText: "Create Note",
+      onConfirm: (val) => {
+        if (!val) return;
+        const clean = val.trim();
+        if (!/\.(md|markdown)$/i.test(clean)) {
+          setStatusMessage({ type: "error", text: "File path must end with .md or .markdown" });
+          return;
+        }
+        closeModal();
+        setCurrentPath(clean);
+      },
+    });
   };
+
+  const handleRenameFile = (path: string) => {
+    setModalState({
+      isOpen: true,
+      type: "prompt",
+      title: "Rename Note",
+      description: `Enter the new path or filename for "${path}":`,
+      defaultValue: path,
+      inputPlaceholder: path,
+      confirmText: "Rename & Commit",
+      onConfirm: async (newVal) => {
+        if (!newVal || newVal.trim() === path) {
+          closeModal();
+          return;
+        }
+        const cleanNew = newVal.trim();
+
+        setModalLoading(true);
+        // Pass current editor content if user is renaming the currently loaded file
+        const contentToSend = currentPath === path ? content : undefined;
+        const res = await renameFile(path, cleanNew, contentToSend);
+        setModalLoading(false);
+
+        if (res.ok) {
+          closeModal();
+          setStatusMessage({
+            type: "success",
+            text: `Renamed to ${cleanNew} and committed to GitHub`,
+            commitSha: res.commitSha,
+            commitUrl: res.commitUrl,
+          });
+          if (currentPath === path) {
+            setCurrentPath(cleanNew);
+            setSavedContent(content);
+          }
+          void loadTree();
+        } else {
+          setStatusMessage({ type: "error", text: res.error });
+        }
+      },
+    });
+  };
+
+  const handleMoveFile = (path: string) => {
+    setModalState({
+      isOpen: true,
+      type: "prompt",
+      title: "Move Note",
+      description: `Enter the destination directory or path for "${path}":`,
+      defaultValue: path,
+      inputPlaceholder: "folder/note.md",
+      confirmText: "Move & Commit",
+      onConfirm: async (destVal) => {
+        if (!destVal || destVal.trim() === path) {
+          closeModal();
+          return;
+        }
+        const cleanDest = destVal.trim();
+
+        setModalLoading(true);
+        const contentToSend = currentPath === path ? content : undefined;
+        const res = await renameFile(path, cleanDest, contentToSend);
+        setModalLoading(false);
+
+        if (res.ok) {
+          closeModal();
+          setStatusMessage({
+            type: "success",
+            text: `Moved to ${cleanDest} and committed to GitHub`,
+            commitSha: res.commitSha,
+            commitUrl: res.commitUrl,
+          });
+          if (currentPath === path) {
+            setCurrentPath(cleanDest);
+            setSavedContent(content);
+          }
+          void loadTree();
+        } else {
+          setStatusMessage({ type: "error", text: res.error });
+        }
+      },
+    });
+  };
+
+  const handleCopyFile = (path: string) => {
+    const extMatch = path.match(/\.[^.]+$/);
+    const ext = extMatch ? extMatch[0] : "";
+    const base = ext ? path.slice(0, -ext.length) : path;
+    const defaultCopy = `${base}-copy${ext}`;
+
+    setModalState({
+      isOpen: true,
+      type: "prompt",
+      title: "Duplicate Note",
+      description: `Enter the path for the duplicate note:`,
+      defaultValue: defaultCopy,
+      inputPlaceholder: defaultCopy,
+      confirmText: "Duplicate & Commit",
+      onConfirm: async (destVal) => {
+        if (!destVal) return;
+        const cleanDest = destVal.trim();
+
+        setModalLoading(true);
+        const res = await copyFile(path, cleanDest);
+        setModalLoading(false);
+
+        if (res.ok) {
+          closeModal();
+          setStatusMessage({
+            type: "success",
+            text: `Duplicated to ${cleanDest} and committed to GitHub`,
+            commitSha: res.commitSha,
+            commitUrl: res.commitUrl,
+          });
+          void loadTree();
+        } else {
+          setStatusMessage({ type: "error", text: res.error });
+        }
+      },
+    });
+  };
+
+  const handleDeleteFile = (path: string) => {
+    setModalState({
+      isOpen: true,
+      type: "confirm",
+      title: "Delete File from GitHub",
+      description: `Are you sure you want to permanently delete "${path}" and commit this change to GitHub?`,
+      confirmText: "Delete & Commit",
+      isDestructive: true,
+      onConfirm: async () => {
+        setModalLoading(true);
+        const res = await deleteFile(path);
+        setModalLoading(false);
+
+        if (res.ok) {
+          closeModal();
+          setStatusMessage({
+            type: "success",
+            text: `Deleted ${path} from repository`,
+            commitSha: res.commitSha,
+            commitUrl: res.commitUrl,
+          });
+          if (currentPath === path) {
+            setCurrentPath("notes/inbox.md");
+          }
+          void loadTree();
+        } else {
+          setStatusMessage({ type: "error", text: res.error });
+        }
+      },
+    });
+  };
+
 
   return (
     <div className="flex h-full w-full flex-1 overflow-hidden rounded-xl border border-border bg-surface shadow-xs">
+      {/* Action Modal (replaces browser alerts) */}
+      <ActionModal
+        isOpen={modalState.isOpen}
+        type={modalState.type}
+        title={modalState.title}
+        description={modalState.description}
+        defaultValue={modalState.defaultValue}
+        inputPlaceholder={modalState.inputPlaceholder}
+        confirmText={modalState.confirmText}
+        isDestructive={modalState.isDestructive}
+        isLoading={modalLoading}
+        onConfirm={modalState.onConfirm}
+        onCancel={closeModal}
+      />
+
       {/* File Tree Sidebar (collapsible) */}
       {sidebarOpen && (
         <FileTree
@@ -198,6 +415,10 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
           selectedPath={currentPath}
           onSelectFile={(path) => setCurrentPath(path)}
           onNewFile={handleNewFile}
+          onRenameFile={handleRenameFile}
+          onMoveFile={handleMoveFile}
+          onCopyFile={handleCopyFile}
+          onDeleteFile={handleDeleteFile}
           onRefresh={() => void loadTree()}
           isLoading={loadingTree}
           branchName={branchInfo?.branch}
@@ -365,7 +586,20 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
                   : "bg-surface-subtle text-muted"
             }`}
           >
-            <span>{statusMessage.text}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{statusMessage.text}</span>
+              {statusMessage.commitUrl && statusMessage.commitSha && (
+                <a
+                  href={statusMessage.commitUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1 rounded bg-surface px-2 py-0.5 font-mono text-[11px] underline underline-offset-2 hover:opacity-80"
+                  title="View commit on GitHub"
+                >
+                  commit: {statusMessage.commitSha.slice(0, 7)} ↗
+                </a>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setStatusMessage(null)}
@@ -376,7 +610,8 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
           </div>
         )}
 
-        {/* Editor & Preview Pane taking full remaining height */}
+
+        {/* Editor & Preview Pane */}
         <div className="relative mt-3 flex flex-1 overflow-hidden">
           {loading ? (
             <div className="flex h-full w-full items-center justify-center text-xs text-muted">

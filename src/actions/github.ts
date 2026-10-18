@@ -5,7 +5,7 @@ export type NoteResult =
   | { ok: false; code: ErrorCode; error: string };
 
 export type SaveResult =
-  | { ok: true; sha: string }
+  | { ok: true; sha: string; commitSha?: string; commitUrl?: string }
   | { ok: false; code: ErrorCode; error: string };
 
 export type ErrorCode =
@@ -29,7 +29,7 @@ function config() {
 
 function validatePath(repoPath: string): string | null {
   const p = repoPath.replace(/^\/+/, "");
-  if (!p || p.includes("..") || p.includes("\\") || !/\.(md|markdown)$/i.test(p)) {
+  if (!p || p.includes("..") || p.includes("\\")) {
     return null;
   }
   return p;
@@ -170,11 +170,18 @@ export async function saveNote(
       return { ok: false, ...mapError(res, body) };
     }
     const newSha = (body?.content as { sha?: string } | undefined)?.sha;
-    return { ok: true, sha: newSha ?? "" };
+    const cSha = (body?.commit as { sha?: string } | undefined)?.sha;
+    return {
+      ok: true,
+      sha: newSha ?? "",
+      commitSha: cSha,
+      commitUrl: commitUrl(cfg, cSha),
+    };
   } catch {
     return { ok: false, code: "UNKNOWN", error: "Network error contacting GitHub." };
   }
 }
+
 
 function mapConflict(): SaveResult {
   return {
@@ -318,5 +325,173 @@ export async function getRepoTree(): Promise<RepoTreeResult> {
     return { ok: false, code: "UNKNOWN", error: "Network error fetching file tree." };
   }
 }
+
+export type OperationResult =
+  | { ok: true; commitSha?: string; commitUrl?: string }
+  | { ok: false; code: ErrorCode; error: string };
+
+function commitUrl(cfg: NonNullable<ReturnType<typeof config>>, sha?: string): string | undefined {
+  if (!sha) return undefined;
+  return `https://github.com/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/commit/${sha}`;
+}
+
+/**
+ * Delete a file from GitHub repo.
+ * DELETE /repos/{owner}/{repo}/contents/{path}
+ */
+export async function deleteFile(repoPath: string, fileSha?: string): Promise<OperationResult> {
+  const cfg = config();
+  if (!cfg) return { ok: false, code: "CONFIG", error: "Missing GitHub env variables." };
+  const path = validatePath(repoPath);
+  if (!path) return { ok: false, code: "INVALID_PATH", error: "Invalid path." };
+
+  try {
+    let sha = fileSha;
+    if (!sha) {
+      const current = await fetchFile(cfg, path);
+      if (!current.ok) return { ok: false, code: current.code, error: current.error };
+      sha = current.sha;
+    }
+
+    const res = await fetch(contentsUrl(cfg, path), {
+      method: "DELETE",
+      headers: headers(cfg.token),
+      body: JSON.stringify({
+        message: `Delete ${path}`,
+        sha,
+        ...(cfg.branch ? { branch: cfg.branch } : {}),
+      }),
+    });
+
+    const body = await readJson(res);
+    if (!res.ok) {
+      return { ok: false, ...mapError(res, body) };
+    }
+    const cSha = (body?.commit as { sha?: string } | undefined)?.sha;
+    return { ok: true, commitSha: cSha, commitUrl: commitUrl(cfg, cSha) };
+  } catch {
+    return { ok: false, code: "UNKNOWN", error: "Network error deleting file." };
+  }
+}
+
+/**
+ * Rename or Move a file: creates target path with same content, then deletes original.
+ * Optional content override allows saving current unsaved editor changes atomically with the rename.
+ */
+export async function renameFile(
+  oldPath: string,
+  newPath: string,
+  contentOverride?: string
+): Promise<OperationResult> {
+  const cfg = config();
+  if (!cfg) return { ok: false, code: "CONFIG", error: "Missing GitHub env variables." };
+
+  const validOld = validatePath(oldPath);
+  const validNew = validatePath(newPath);
+  if (!validOld || !validNew) {
+    return { ok: false, code: "INVALID_PATH", error: "Invalid file paths." };
+  }
+  if (validOld === validNew) {
+    return { ok: false, code: "INVALID_PATH", error: "New path is identical to current path." };
+  }
+
+  try {
+    // 1. Fetch source content if not provided
+    const source = await fetchFile(cfg, validOld);
+    if (!source.ok) return { ok: false, code: source.code, error: source.error };
+
+    // 2. Check destination does not already exist
+    const destination = await fetchFile(cfg, validNew);
+    if (destination.ok) {
+      return { ok: false, code: "CONFLICT", error: `Destination file "${validNew}" already exists on GitHub.` };
+    }
+
+    const finalContent = contentOverride !== undefined ? contentOverride : source.content;
+
+    // 3. Create file at new path
+    const createRes = await fetch(contentsUrl(cfg, validNew), {
+      method: "PUT",
+      headers: headers(cfg.token),
+      body: JSON.stringify({
+        message: `Move ${validOld} to ${validNew}`,
+        content: Buffer.from(finalContent, "utf-8").toString("base64"),
+        ...(cfg.branch ? { branch: cfg.branch } : {}),
+      }),
+    });
+    const createBody = await readJson(createRes);
+    if (!createRes.ok) {
+      return { ok: false, ...mapError(createRes, createBody) };
+    }
+
+    // 4. Delete file at old path
+    const deleteRes = await fetch(contentsUrl(cfg, validOld), {
+      method: "DELETE",
+      headers: headers(cfg.token),
+      body: JSON.stringify({
+        message: `Delete ${validOld} (moved to ${validNew})`,
+        sha: source.sha,
+        ...(cfg.branch ? { branch: cfg.branch } : {}),
+      }),
+    });
+    const deleteBody = await readJson(deleteRes);
+    if (!deleteRes.ok) {
+      return {
+        ok: false,
+        code: "UNKNOWN",
+        error: `Created new file at "${validNew}", but failed to delete original: ${deleteBody?.message || deleteRes.statusText}`,
+      };
+    }
+
+    const cSha = (createBody?.commit as { sha?: string } | undefined)?.sha;
+    return { ok: true, commitSha: cSha, commitUrl: commitUrl(cfg, cSha) };
+  } catch {
+    return { ok: false, code: "UNKNOWN", error: "Network error renaming file." };
+  }
+}
+
+/**
+ * Copy a file to a new destination path.
+ */
+export async function copyFile(sourcePath: string, destinationPath: string): Promise<OperationResult> {
+  const cfg = config();
+  if (!cfg) return { ok: false, code: "CONFIG", error: "Missing GitHub env variables." };
+
+  const validSource = validatePath(sourcePath);
+  const validDest = validatePath(destinationPath);
+  if (!validSource || !validDest) {
+    return { ok: false, code: "INVALID_PATH", error: "Invalid file paths." };
+  }
+
+  try {
+    const source = await fetchFile(cfg, validSource);
+    if (!source.ok) return { ok: false, code: source.code, error: source.error };
+
+    const destination = await fetchFile(cfg, validDest);
+    if (destination.ok) {
+      return { ok: false, code: "CONFLICT", error: `Destination file "${validDest}" already exists.` };
+    }
+
+    const createRes = await fetch(contentsUrl(cfg, validDest), {
+      method: "PUT",
+      headers: headers(cfg.token),
+      body: JSON.stringify({
+        message: `Copy ${validSource} to ${validDest}`,
+        content: Buffer.from(source.content, "utf-8").toString("base64"),
+        ...(cfg.branch ? { branch: cfg.branch } : {}),
+      }),
+    });
+    const createBody = await readJson(createRes);
+    if (!createRes.ok) {
+      return { ok: false, ...mapError(createRes, createBody) };
+    }
+
+    const cSha = (createBody?.commit as { sha?: string } | undefined)?.sha;
+    return { ok: true, commitSha: cSha, commitUrl: commitUrl(cfg, cSha) };
+  } catch {
+    return { ok: false, code: "UNKNOWN", error: "Network error copying file." };
+  }
+}
+
+
 
 

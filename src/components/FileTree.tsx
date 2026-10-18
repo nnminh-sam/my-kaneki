@@ -4,12 +4,18 @@ import { useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
   FileCode,
+  FileEdit,
   FilePlus,
   FileText,
   Folder,
   FolderOpen,
+  FolderPlus,
+  MoreVertical,
+  Move,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import type { TreeFileItem } from "@/actions/github";
 
@@ -51,7 +57,6 @@ function buildTree(files: TreeFileItem[]): TreeNode[] {
     }
   }
 
-  // Sort folders first, then alphabetically
   function sortNodes(nodes: TreeNode[]): TreeNode[] {
     return nodes
       .sort((a, b) => {
@@ -75,7 +80,11 @@ interface FileTreeProps {
   files: TreeFileItem[];
   selectedPath: string;
   onSelectFile: (path: string) => void;
-  onNewFile: () => void;
+  onNewFile: (folderPrefix?: string) => void;
+  onRenameFile: (path: string) => void;
+  onMoveFile: (path: string) => void;
+  onCopyFile: (path: string) => void;
+  onDeleteFile: (path: string) => void;
   onRefresh: () => void;
   isLoading?: boolean;
   branchName?: string;
@@ -86,6 +95,10 @@ export function FileTree({
   selectedPath,
   onSelectFile,
   onNewFile,
+  onRenameFile,
+  onMoveFile,
+  onCopyFile,
+  onDeleteFile,
   onRefresh,
   isLoading,
   branchName,
@@ -93,6 +106,7 @@ export function FileTree({
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
     "": true,
   });
+  const [activeMenuPath, setActiveMenuPath] = useState<string | null>(null);
 
   const tree = useMemo(() => buildTree(files), [files]);
 
@@ -104,35 +118,49 @@ export function FileTree({
   };
 
   const isFolderOpen = (folderPath: string) => {
-    return openFolders[folderPath] !== false; // default open
+    return openFolders[folderPath] !== false;
   };
 
   const renderNode = (node: TreeNode, depth = 0) => {
     const isSelected = node.path === selectedPath;
     const isMarkdown = /\.(md|markdown)$/i.test(node.name);
+    const isMenuOpen = activeMenuPath === node.path;
 
     if (node.isFolder) {
       const open = isFolderOpen(node.path);
       return (
         <div key={node.path}>
-          <button
-            type="button"
-            onClick={() => toggleFolder(node.path)}
-            style={{ paddingLeft: `${depth * 12 + 6}px` }}
-            className="flex w-full items-center gap-1.5 rounded py-1 pr-2 text-xs font-medium text-muted hover:bg-surface hover:text-fg"
-          >
-            {open ? (
-              <ChevronDown className="h-3 w-3 shrink-0" />
-            ) : (
-              <ChevronRight className="h-3 w-3 shrink-0" />
-            )}
-            {open ? (
-              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-accent" />
-            ) : (
-              <Folder className="h-3.5 w-3.5 shrink-0 text-accent" />
-            )}
-            <span className="truncate">{node.name}</span>
-          </button>
+          <div className="group relative flex items-center justify-between rounded hover:bg-surface">
+            <button
+              type="button"
+              onClick={() => toggleFolder(node.path)}
+              style={{ paddingLeft: `${depth * 12 + 6}px` }}
+              className="flex flex-1 items-center gap-1.5 py-1 pr-2 text-xs font-medium text-muted hover:text-fg text-left"
+            >
+              {open ? (
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              ) : (
+                <ChevronRight className="h-3 w-3 shrink-0" />
+              )}
+              {open ? (
+                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-accent" />
+              ) : (
+                <Folder className="h-3.5 w-3.5 shrink-0 text-accent" />
+              )}
+              <span className="truncate">{node.name}</span>
+            </button>
+
+            {/* Quick action: new file in this folder */}
+            <button
+              type="button"
+              onClick={() => onNewFile(node.path)}
+              title={`New file in ${node.path}`}
+              className="hidden p-1 text-muted hover:text-fg group-hover:block mr-1 rounded"
+            >
+              <FolderPlus className="h-3 w-3" />
+            </button>
+          </div>
+
           {open && node.children && (
             <div>{node.children.map((child) => renderNode(child, depth + 1))}</div>
           )}
@@ -141,25 +169,112 @@ export function FileTree({
     }
 
     return (
-      <button
+      <div
         key={node.path}
-        type="button"
-        onClick={() => onSelectFile(node.path)}
-        style={{ paddingLeft: `${depth * 12 + 20}px` }}
-        className={`flex w-full items-center gap-1.5 rounded py-1 pr-2 text-xs text-left transition-colors ${
+        className={`group relative flex items-center justify-between rounded transition-colors ${
           isSelected
             ? "bg-accent-soft font-medium text-accent"
             : "text-muted hover:bg-surface hover:text-fg"
         }`}
       >
-        {isMarkdown ? (
-          <FileText className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-accent" : "text-muted"}`} />
-        ) : (
-          <FileCode className="h-3.5 w-3.5 shrink-0 text-muted/60" />
-        )}
-        <span className="truncate">{node.name}</span>
-      </button>
+        <button
+          type="button"
+          onClick={() => onSelectFile(node.path)}
+          style={{ paddingLeft: `${depth * 12 + 20}px` }}
+          className="flex flex-1 items-center gap-1.5 py-1 pr-1 text-xs text-left truncate"
+        >
+          {isMarkdown ? (
+            <FileText className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-accent" : "text-muted"}`} />
+          ) : (
+            <FileCode className="h-3.5 w-3.5 shrink-0 text-muted/60" />
+          )}
+          <span className="truncate">{node.name}</span>
+        </button>
+
+        {/* Action dropdown toggle button */}
+        <div className="relative mr-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveMenuPath(isMenuOpen ? null : node.path);
+            }}
+            title="File options"
+            className={`rounded p-1 text-muted hover:bg-surface-subtle hover:text-fg ${
+              isMenuOpen ? "block" : "hidden group-hover:block"
+            }`}
+          >
+            <MoreVertical className="h-3 w-3" />
+          </button>
+
+
+            {/* Context menu popup */}
+            {isMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMenuPath(null);
+                  }}
+                />
+                <div
+                  className="absolute right-0 top-6 z-50 w-36 rounded-md border border-border bg-surface p-1 shadow-md text-xs"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMenuPath(null);
+                      onRenameFile(node.path);
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-fg hover:bg-surface-subtle"
+                  >
+                    <FileEdit className="h-3 w-3 text-muted" />
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMenuPath(null);
+                      onMoveFile(node.path);
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-fg hover:bg-surface-subtle"
+                  >
+                    <Move className="h-3 w-3 text-muted" />
+                    Move
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMenuPath(null);
+                      onCopyFile(node.path);
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-fg hover:bg-surface-subtle"
+                  >
+                    <Copy className="h-3 w-3 text-muted" />
+                    Duplicate
+                  </button>
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMenuPath(null);
+                      onDeleteFile(node.path);
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-danger hover:bg-danger-soft"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+      </div>
     );
+
+
   };
 
   return (
@@ -175,7 +290,7 @@ export function FileTree({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={onNewFile}
+            onClick={() => onNewFile()}
             title="Create new note"
             className="rounded p-1 text-muted hover:bg-surface hover:text-fg"
           >
