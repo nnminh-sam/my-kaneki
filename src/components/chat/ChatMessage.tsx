@@ -4,11 +4,49 @@ import { useState } from "react";
 import type { UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, ChevronDown, ChevronRight, Lightbulb, User } from "lucide-react";
+import { ChevronDown, ChevronRight, Lightbulb } from "lucide-react";
 import { ToolCallCard } from "./ToolCallCard";
 
 interface ChatMessageProps {
   message: UIMessage;
+}
+
+const LATEX_SYMBOLS: Record<string, string> = {
+  rightarrow: "→",
+  to: "→",
+  leftarrow: "←",
+  gets: "←",
+  leftrightarrow: "↔",
+  Rightarrow: "⇒",
+  Leftarrow: "⇐",
+  Leftrightarrow: "⇔",
+  uparrow: "↑",
+  downarrow: "↓",
+  times: "×",
+  div: "÷",
+  pm: "±",
+  leq: "≤",
+  le: "≤",
+  geq: "≥",
+  ge: "≥",
+  neq: "≠",
+  ne: "≠",
+  approx: "≈",
+  infty: "∞",
+  cdot: "·",
+  checkmark: "✓",
+};
+
+/** Converts simple inline LaTeX like `$\rightarrow$` into unicode, leaving code untouched. */
+function normalizeLatexSymbols(text: string): string {
+  return text
+    .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
+    .map((chunk, i) =>
+      i % 2 === 1
+        ? chunk
+        : chunk.replace(/\$\s*\\([A-Za-z]+)\s*\$/g, (match, name: string) => LATEX_SYMBOLS[name] ?? match),
+    )
+    .join("");
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
@@ -21,23 +59,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
         isUser ? "bg-transparent justify-end" : "bg-surface/50 border-y border-border/40"
       }`}
     >
-      {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-xs">
-          <Bot className="h-4 w-4" />
-        </div>
-      )}
-
       <div className={`flex flex-col gap-2 max-w-[85%] ${isUser ? "items-end" : "items-start flex-1"}`}>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-fg">
-            {isUser ? "You" : "Kaneki Agent"}
-          </span>
-        </div>
-
         <div
           className={`text-sm leading-relaxed ${
             isUser
-              ? "rounded-2xl rounded-tr-xs bg-accent text-white px-4 py-2.5 shadow-xs"
+              ? "rounded-2xl rounded-tr-xs border border-white/10 bg-neutral-900 text-white px-4 py-2.5 shadow-xs"
               : "w-full text-fg"
           }`}
         >
@@ -55,6 +81,26 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
+                      h1: ({ children }) => <h1 className="mb-2 mt-4 text-lg font-bold text-fg first:mt-0">{children}</h1>,
+                      h2: ({ children }) => <h2 className="mb-2 mt-4 text-base font-bold text-fg first:mt-0">{children}</h2>,
+                      h3: ({ children }) => <h3 className="mb-1.5 mt-3 text-sm font-semibold text-fg first:mt-0">{children}</h3>,
+                      h4: ({ children }) => <h4 className="mb-1.5 mt-3 text-sm font-semibold text-fg first:mt-0">{children}</h4>,
+                      strong: ({ children }) => <strong className="font-semibold text-fg">{children}</strong>,
+                      hr: () => <hr className="my-4 border-t border-border" />,
+                      blockquote: ({ children }) => (
+                        <blockquote className="my-2.5 border-l-2 border-accent/40 pl-3 text-muted">{children}</blockquote>
+                      ),
+                      table: ({ children }) => (
+                        <div className="my-3 w-full overflow-x-auto rounded-lg border border-border">
+                          <table className="w-full border-collapse text-left text-xs">{children}</table>
+                        </div>
+                      ),
+                      thead: ({ children }) => <thead className="bg-surface-subtle">{children}</thead>,
+                      tr: ({ children }) => <tr className="border-b border-border last:border-b-0">{children}</tr>,
+                      th: ({ children }) => (
+                        <th className="whitespace-nowrap px-3 py-2 font-semibold text-fg">{children}</th>
+                      ),
+                      td: ({ children }) => <td className="px-3 py-2 align-top text-fg">{children}</td>,
                       p: ({ children }) => <p className="mb-2.5 last:mb-0 leading-relaxed">{children}</p>,
                       ul: ({ children }) => <ul className="mb-2.5 list-disc pl-5 space-y-1">{children}</ul>,
                       ol: ({ children }) => <ol className="mb-2.5 list-decimal pl-5 space-y-1">{children}</ol>,
@@ -91,7 +137,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                       ),
                     }}
                   >
-                    {part.text}
+                    {normalizeLatexSymbols(part.text)}
                   </ReactMarkdown>
                 </div>
               );
@@ -150,12 +196,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
           })}
         </div>
       </div>
-
-      {isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-subtle text-fg border border-border shadow-xs">
-          <User className="h-4 w-4" />
-        </div>
-      )}
     </div>
   );
 }

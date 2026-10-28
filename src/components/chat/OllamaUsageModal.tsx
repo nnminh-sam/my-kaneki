@@ -62,16 +62,19 @@ function QuotaRing({
   percent,
   size = 24,
   loading,
+  showLabel = false,
 }: {
   percent: number;
   size?: number;
   loading?: boolean;
+  /** Render the percentage inside the ring */
+  showLabel?: boolean;
 }) {
   const stroke = 3;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(100, percent));
-  return (
+  const svg = (
     <svg
       width={size}
       height={size}
@@ -100,6 +103,20 @@ function QuotaRing({
         className={`transition-all duration-300 ${clamped > 20 ? "stroke-ok" : "stroke-danger"}`}
       />
     </svg>
+  );
+
+  if (!showLabel) return svg;
+
+  return (
+    <span
+      className="relative inline-flex shrink-0 items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      {svg}
+      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold leading-none text-fg">
+        {Math.round(clamped)}
+      </span>
+    </span>
   );
 }
 
@@ -168,7 +185,12 @@ export function OllamaUsageModal({
           aria-label="Ollama Cloud usage"
           className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-surface-subtle cursor-pointer"
         >
-          <QuotaRing percent={percentRemaining} size={22} loading={!data} />
+          <QuotaRing
+            percent={percentRemaining}
+            size={30}
+            loading={!data}
+            showLabel
+          />
         </button>
       ) : variant === "sidebar" ? (
         <button
@@ -183,12 +205,15 @@ export function OllamaUsageModal({
           {!collapsed && (
             <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-xs font-medium leading-tight text-fg">
-                Quota
+                Quota{" "}
+                <span className="font-mono text-muted">
+                  {percentRemaining}%
+                </span>
               </p>
               <p className="truncate text-[11px] text-muted/80">
                 {data?.resetAt
                   ? `Resets ${formatResetDate(data.resetAt)}`
-                  : `${percentRemaining}% left`}
+                  : "Loading…"}
               </p>
             </div>
           )}

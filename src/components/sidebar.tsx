@@ -13,10 +13,8 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
-  Menu,
   Terminal,
   Wallet,
-  X,
 } from "lucide-react";
 import { logout } from "@/app/actions";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
@@ -87,32 +85,21 @@ export function Sidebar({
     <>
       {/* Mobile Header Bar */}
       <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-4 md:hidden">
-        <Link
-          href="/"
-          className="flex items-center gap-2.5 font-semibold tracking-tight"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
-            <Terminal className="h-4 w-4" />
-          </span>
-          <span>my_kaneki</span>
-        </Link>
-        <div className="flex items-center gap-1">
-          <OllamaUsageModal variant="icon" />
+        <div className="flex items-center gap-2.5 font-semibold tracking-tight">
           <button
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label={
               mobileOpen ? "Close navigation menu" : "Open navigation menu"
             }
-            className="rounded-lg p-2 text-muted hover:bg-surface-subtle hover:text-fg"
+            aria-expanded={mobileOpen}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent cursor-pointer"
           >
-            {mobileOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
+            <Terminal className="h-4 w-4" />
           </button>
+          <Link href="/">my_kaneki</Link>
         </div>
+        <OllamaUsageModal variant="icon" />
       </header>
 
       <CollapsibleSidebar
