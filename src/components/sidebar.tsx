@@ -84,7 +84,7 @@ export function Sidebar({
   return (
     <>
       {/* Mobile Header Bar */}
-      <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-4 md:hidden">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4 md:hidden">
         <div className="flex items-center gap-2.5 font-semibold tracking-tight">
           <button
             type="button"
