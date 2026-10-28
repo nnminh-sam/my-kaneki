@@ -201,28 +201,16 @@ export function OverviewChatApp({ initialSessions }: OverviewChatAppProps) {
       </button>
 
       {/* Left Session List Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-20 w-72 transition-transform duration-200 md:static md:translate-x-0 ${
-          showMobileSessions ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <ChatSessionList
-          sessions={sessions}
-          activeSessionId={activeSession?.id ?? ""}
-          onSelectSession={handleSelectSession}
-          onNewSession={handleNewSession}
-          onRenameSession={handleRenameSession}
-          onDeleteSession={handleDeleteSession}
-        />
-      </div>
-
-      {/* Backdrop for mobile */}
-      {showMobileSessions && (
-        <div
-          onClick={() => setShowMobileSessions(false)}
-          className="fixed inset-0 z-10 bg-black/40 md:hidden"
-        />
-      )}
+      <ChatSessionList
+        sessions={sessions}
+        activeSessionId={activeSession?.id ?? ""}
+        onSelectSession={handleSelectSession}
+        onNewSession={handleNewSession}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
+        mobileOpen={showMobileSessions}
+        onMobileOpenChange={setShowMobileSessions}
+      />
 
       {/* Right Main Chat Window */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">

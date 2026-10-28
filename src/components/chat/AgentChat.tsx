@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import type { ChatSession } from "@/lib/chat-sessions";
 import { ChatMessage } from "./ChatMessage";
-import { OllamaUsageModal } from "./OllamaUsageModal";
 
 interface AgentChatProps {
   session: ChatSession;
@@ -36,7 +35,8 @@ const PROMPT_SUGGESTIONS = [
   {
     icon: <FileText className="h-4 w-4 text-accent" />,
     label: "Update note",
-    prompt: "Update note notes/daily-log.md with a summary of today's learning and workspace tasks",
+    prompt:
+      "Update note notes/daily-log.md with a summary of today's learning and workspace tasks",
   },
   {
     icon: <Sparkles className="h-4 w-4 text-accent" />,
@@ -45,7 +45,11 @@ const PROMPT_SUGGESTIONS = [
   },
 ];
 
-export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }: AgentChatProps) {
+export function AgentChat({
+  session,
+  onUpdateSessionMessages,
+  onRenameSession,
+}: AgentChatProps) {
   const [input, setInput] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(session.title || "New Chat");
@@ -144,7 +148,7 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
   return (
     <div className="flex h-full w-full flex-col bg-bg">
       {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-border bg-surface px-6 py-3.5">
+      <div className="hidden h-15 shrink-0 items-center justify-between border-b border-border bg-surface px-6 md:flex">
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-white shadow-xs">
             <Bot className="h-4 w-4" />
@@ -182,7 +186,9 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
               </div>
             ) : (
               <div className="flex items-center gap-1.5 group/header-title">
-                <h1 className="text-sm font-semibold text-fg">{session.title || "New Chat"}</h1>
+                <h1 className="text-sm font-semibold text-fg">
+                  {session.title || "New Chat"}
+                </h1>
                 {onRenameSession && (
                   <button
                     type="button"
@@ -198,19 +204,10 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
                 )}
               </div>
             )}
-            <p className="text-[11px] text-muted flex items-center gap-1.5">
-              <span>Ollama Cloud Agent</span>
-              <span>•</span>
-              <span className="text-ok flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-                Active
-              </span>
-            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted">
-          <OllamaUsageModal />
           <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px]">
             <ShieldCheck className="h-3 w-3 text-ok" />
             Audit Logging Active
@@ -219,16 +216,19 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
       </div>
 
       {/* Messages Stream Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pt-12 md:pt-0">
         {messages.length === 0 ? (
           <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center p-6 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent ring-8 ring-accent-soft/50 shadow-sm">
               <Bot className="h-7 w-7" />
             </div>
-            <h2 className="text-lg font-semibold text-fg">Kaneki Workspace Agent</h2>
+            <h2 className="text-lg font-semibold text-fg">
+              Kaneki Workspace Agent
+            </h2>
             <p className="mt-1 max-w-md text-xs text-muted leading-relaxed">
-              Equipped with resilient tool execution and a polymorphic, append-only audit log.
-              Ask me to manage your todos or update your GitHub notes.
+              Equipped with resilient tool execution and a polymorphic,
+              append-only audit log. Ask me to manage your todos or update your
+              GitHub notes.
             </p>
 
             {/* Quick Suggestions */}
@@ -273,7 +273,9 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
       {error && (
         <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-soft p-3 text-xs text-danger">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span className="flex-1">{error.message || "Failed to stream agent response."}</span>
+          <span className="flex-1">
+            {error.message || "Failed to stream agent response."}
+          </span>
         </div>
       )}
 
@@ -298,7 +300,10 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
                   onClick={() => {
                     stop();
                     if (latestMessagesRef.current.length > 0) {
-                      onUpdateRef.current(session.id, latestMessagesRef.current);
+                      onUpdateRef.current(
+                        session.id,
+                        latestMessagesRef.current,
+                      );
                     }
                   }}
                   title="Stop generating"
@@ -322,7 +327,9 @@ export function AgentChat({ session, onUpdateSessionMessages, onRenameSession }:
 
           <div className="mt-1.5 flex items-center justify-between px-1 text-[11px] text-muted">
             <span>Press Enter to send, Shift+Enter for new line</span>
-            <span className="hidden sm:inline">Actions logged to audit_log</span>
+            <span className="hidden sm:inline">
+              Actions logged to audit_log
+            </span>
           </div>
         </div>
       </div>

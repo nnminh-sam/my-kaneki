@@ -3,7 +3,7 @@ export type WorkspaceNavItem = {
   label: string;
   description: string;
   href: string;
-  icon: "home" | "learning" | "todos" | "notes";
+  icon: "agent" | "home" | "learning" | "todos" | "notes";
 };
 
 export type ExternalAppItem = {
@@ -16,11 +16,11 @@ export type ExternalAppItem = {
 
 export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
   {
-    id: "overview",
-    label: "Overview",
-    description: "Central workspace hub",
+    id: "agent",
+    label: "Agent",
+    description: "AI assistant & chat sessions",
     href: "/",
-    icon: "home",
+    icon: "agent",
   },
   {
     id: "learning",
