@@ -408,6 +408,35 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
         onCancel={closeModal}
       />
 
+      {/* Status / error / success notifications shown as a modal */}
+      <ActionModal
+        isOpen={!!statusMessage}
+        type="alert"
+        title={
+          statusMessage?.type === "error"
+            ? "Error"
+            : statusMessage?.type === "success"
+              ? "Success"
+              : "Notice"
+        }
+        description={statusMessage?.text}
+        isDestructive={statusMessage?.type === "error"}
+        confirmText="OK"
+        onConfirm={() => setStatusMessage(null)}
+        onCancel={() => setStatusMessage(null)}
+      >
+        {statusMessage?.commitUrl && statusMessage.commitSha && (
+          <a
+            href={statusMessage.commitUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 rounded bg-surface-subtle px-2 py-0.5 font-mono text-[11px] underline underline-offset-2 hover:opacity-80"
+          >
+            commit: {statusMessage.commitSha.slice(0, 7)} ↗
+          </a>
+        )}
+      </ActionModal>
+
       {/* File Tree Sidebar (collapsible) */}
       {sidebarOpen && (
         <FileTree
@@ -580,42 +609,6 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
             </button>
           </div>
         </div>
-
-        {/* Status banner */}
-        {statusMessage && (
-          <div
-            className={`mt-2 flex items-center justify-between rounded-md px-3 py-2 text-xs ${
-              statusMessage.type === "error"
-                ? "bg-danger-soft text-danger"
-                : statusMessage.type === "success"
-                  ? "bg-ok-soft text-ok"
-                  : "bg-surface-subtle text-muted"
-            }`}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span>{statusMessage.text}</span>
-              {statusMessage.commitUrl && statusMessage.commitSha && (
-                <a
-                  href={statusMessage.commitUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex items-center gap-1 rounded bg-surface px-2 py-0.5 font-mono text-[11px] underline underline-offset-2 hover:opacity-80"
-                  title="View commit on GitHub"
-                >
-                  commit: {statusMessage.commitSha.slice(0, 7)} ↗
-                </a>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setStatusMessage(null)}
-              className="ml-2 font-bold hover:opacity-75"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
 
         {/* Editor & Preview Pane */}
         <div className="relative mt-3 flex flex-1 overflow-hidden">

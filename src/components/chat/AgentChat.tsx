@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import type { ChatSession } from "@/lib/chat-sessions";
+import { ActionModal } from "@/components/ActionModal";
 import { ChatMessage } from "./ChatMessage";
 
 interface AgentChatProps {
@@ -93,6 +94,8 @@ export function AgentChat({
       }
     },
   });
+
+  const [dismissedError, setDismissedError] = useState<Error | null>(null);
 
   const isGenerating = status === "submitted" || status === "streaming";
 
@@ -269,15 +272,17 @@ export function AgentChat({
         )}
       </div>
 
-      {/* Error alert if any */}
-      {error && (
-        <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-soft p-3 text-xs text-danger">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span className="flex-1">
-            {error.message || "Failed to stream agent response."}
-          </span>
-        </div>
-      )}
+      {/* Error shown as a modal */}
+      <ActionModal
+        isOpen={!!error && dismissedError !== error}
+        type="alert"
+        title="Error"
+        description={error?.message || "Failed to stream agent response."}
+        isDestructive
+        confirmText="OK"
+        onConfirm={() => setDismissedError(error ?? null)}
+        onCancel={() => setDismissedError(error ?? null)}
+      />
 
       {/* Bottom Input Box */}
       <div className="border-t border-border bg-surface p-4">

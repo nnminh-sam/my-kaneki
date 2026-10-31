@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, Info, Loader2, X } from "lucide-react";
 
 export type ModalType = "prompt" | "confirm" | "alert";
@@ -16,6 +16,7 @@ interface ModalProps {
   cancelText?: string;
   isDestructive?: boolean;
   isLoading?: boolean;
+  children?: ReactNode;
   onConfirm: (inputValue?: string) => void;
   onCancel: () => void;
 }
@@ -31,6 +32,7 @@ export function ActionModal({
   cancelText = "Cancel",
   isDestructive = false,
   isLoading = false,
+  children,
   onConfirm,
   onCancel,
 }: ModalProps) {
@@ -89,6 +91,7 @@ export function ActionModal({
             {description && (
               <p className="mt-1 text-xs leading-relaxed text-muted">{description}</p>
             )}
+            {children && <div className="mt-2">{children}</div>}
           </div>
         </div>
 
