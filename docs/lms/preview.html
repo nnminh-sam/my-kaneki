@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My LMS — Kaneki Learning Management System (Mock Preview)</title>
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --surface: #ffffff;
+      --surface-subtle: #f1f0ec;
+      --fg: #1c1b19;
+      --muted: #74716b;
+      --border: #e6e4df;
+      --accent: #3f51d8;
+      --accent-soft: #eceffd;
+      --danger: #c3342b;
+      --danger-soft: #fcefed;
+      --warn: #9a6200;
+      --warn-soft: #fcf4e2;
+      --ok: #217a45;
+      --ok-soft: #e9f5ee;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.1);
+    }
+
+    [data-theme="dark"] {
+      --bg: #111110;
+      --surface: #191918;
+      --surface-subtle: #222220;
+      --fg: #ecebe7;
+      --muted: #9b988f;
+      --border: #2c2b28;
+      --accent: #8d9bff;
+      --accent-soft: #23264a;
+      --danger: #ff8b80;
+      --danger-soft: #3a1f1c;
+      --warn: #f0c060;
+      --warn-soft: #36290f;
+      --ok: #7ad69c;
+      --ok-soft: #173123;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-sans);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Layout */
+    .app-shell { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+    .brand {
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand-logo {
+      width: 26px;
+      height: 26px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .nav-group { padding: 14px 12px; }
+    .nav-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 6px 10px;
+      font-weight: 600;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      color: var(--fg);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .nav-item:hover { background: var(--surface-subtle); }
+    .nav-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .nav-icon { width: 18px; height: 18px; opacity: 0.8; }
+    .nav-left { display: flex; align-items: center; gap: 10px; }
+    .badge {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .badge-accent { background: var(--accent); color: white; }
+    .badge-ok { background: var(--ok-soft); color: var(--ok); }
+    .badge-warn { background: var(--warn-soft); color: var(--warn); }
+    .badge-danger { background: var(--danger-soft); color: var(--danger); }
+    .badge-subtle { background: var(--surface-subtle); color: var(--muted); }
+
+    .user-footer {
+      margin-top: auto;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .theme-toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Main Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* Top Navigation bar */
+    .lms-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .subject-selector {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .subject-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .learner-persona-pill {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .top-stats {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .stat-chip strong { color: var(--fg); font-weight: 600; }
+
+    /* Module Navigation Tabs */
+    .lms-tabs {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      gap: 24px;
+      flex-shrink: 0;
+    }
+    .lms-tab {
+      padding: 12px 4px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+    .lms-tab:hover { color: var(--fg); }
+    .lms-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Workspace Content Panels */
+    .workspace-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+    .tab-view {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .tab-view.active { display: block; }
+
+    /* 2-Column Split for Reader + Agent Chat */
+    .split-container {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      height: 100%;
+    }
+
+    /* Cards & Containers */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .card-body { padding: 18px; }
+
+    /* DAG Flow Visualization */
+    .dag-container {
+      position: relative;
+      padding: 20px 0;
+    }
+    .placement-banner {
+      background: var(--ok-soft);
+      border: 1px solid var(--ok);
+      color: var(--ok);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .dag-tier {
+      margin-bottom: 28px;
+      position: relative;
+    }
+    .dag-tier-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dag-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .dag-node-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .dag-node-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .dag-node-card.active-node {
+      border: 2px solid var(--accent);
+      background: var(--surface);
+      box-shadow: var(--shadow-md);
+    }
+    .dag-node-card.mastered {
+      border-color: var(--border);
+      background: var(--surface);
+      opacity: 0.85;
+    }
+    .dag-node-card.locked {
+      opacity: 0.55;
+      background: var(--surface-subtle);
+      cursor: not-allowed;
+    }
+    .node-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .node-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--fg);
+    }
+    .node-desc {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .node-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+
+    /* Capstone Project Card */
+    .capstone-banner {
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--surface) 100%);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-top: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Markdown Reader */
+    .module-article {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    .module-article h1 { font-size: 24px; margin-bottom: 12px; }
+    .module-article h2 { font-size: 18px; margin: 24px 0 10px 0; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .module-article p { margin-bottom: 16px; color: var(--fg); }
+    .module-article pre {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      overflow-x: auto;
+      margin-bottom: 18px;
+    }
+    .code-comment { color: var(--muted); }
+    .code-keyword { color: var(--accent); font-weight: 600; }
+
+    /* Interactive Quiz Runner */
+    .quiz-container {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .quiz-option {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .quiz-option:hover {
+      border-color: var(--accent);
+      background: var(--surface-subtle);
+    }
+    .quiz-option.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      font-weight: 600;
+    }
+    .quiz-option.correct {
+      border-color: var(--ok);
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+    .quiz-letter {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* SRS Flashcard Table */
+    .srs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .srs-table th {
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--surface-subtle);
+    }
+    .srs-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Agent Chat Sidekick Drawer */
+    .agent-drawer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .chat-bubble {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 90%;
+    }
+    .bubble-assistant {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      align-self: flex-start;
+    }
+    .bubble-user {
+      background: var(--accent);
+      color: #fff;
+      align-self: flex-end;
+    }
+    .tool-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      margin-top: 8px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chat-input-bar {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 13px;
+      outline: none;
+    }
+    .chat-input:focus { border-color: var(--accent); }
+    .btn {
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--fg); }
+    .btn-outline:hover { background: var(--surface-subtle); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* Debate transcript */
+    .debate-round {
+      border-left: 3px solid var(--accent);
+      padding-left: 14px;
+      margin-bottom: 16px;
+    }
+    .debate-speaker {
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">K</div>
+        <span>Kaneki Workspace</span>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Workspace</div>
+        <a class="nav-item">
+          <div class="nav-left">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+            <span>Overview</span>
+          </div>
+        </a>
+        <a class="nav-item active">
+          <div class="nav-left">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            <span>Self-Learning</span>
+          </div>
+          <span class="badge badge-accent">2 due</span>
+        </a>
+        <a class="nav-item">
+          <div class="nav-left">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            <span>Todo & Planning</span>
+          </div>
+        </a>
+        <a class="nav-item">
+          <div class="nav-left">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>Notes</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Connected Apps</div>
+        <a class="nav-item">
+          <div class="nav-left">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <span>my_finance</span>
+          </div>
+          <svg class="nav-icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        </a>
+        <a class="nav-item">
+          <div class="nav-left">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>my_pm_agent</span>
+          </div>
+          <svg class="nav-icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        </a>
+      </div>
+
+      <div class="user-footer">
+        <div class="user-info">
+          <div class="user-avatar">M</div>
+          <div>
+            <div style="font-weight:600;font-size:13px">minh</div>
+            <div style="font-size:11px;color:var(--muted)">minh@kaneki.dev</div>
+          </div>
+        </div>
+        <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+          <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main LMS Experience -->
+    <main class="main-content">
+      <!-- Top Subject & Profile Ribbon -->
+      <header class="lms-header">
+        <div class="subject-selector">
+          <div class="subject-pill">
+            <span style="font-size:16px;">⚡</span>
+            <span>Raft Consensus in Go</span>
+            <svg style="width:14px;height:14px;color:var(--muted)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <div class="learner-persona-pill">
+            <span class="badge badge-subtle">First-Principles</span>
+            <span class="badge badge-subtle">Code-First</span>
+            <span>Placement: Tier 3</span>
+          </div>
+        </div>
+
+        <div class="top-stats">
+          <div class="stat-chip">
+            <span>Graph Progress:</span>
+            <strong>3 / 8 Nodes (38%)</strong>
+          </div>
+          <div class="stat-chip">
+            <span>SRS Retention:</span>
+            <strong style="color:var(--ok)">94.2%</strong>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="switchTab('tab-ingest')">
+            <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Ingest Notes (BYOS)
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('tab-reader')">
+            Continue Node 03
+          </button>
+        </div>
+      </header>
+
+      <!-- Navigation Tabs -->
+      <nav class="lms-tabs">
+        <div class="lms-tab active" onclick="switchTab('tab-dag', this)">
+          <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="20" y2="20"></line><circle cx="18" cy="12" r="3"></circle><line x1="6" y1="9" x2="6" y2="15"></line><path d="M18 12H9"></path></svg>
+          Learning Path (DAG)
+        </div>
+        <div class="lms-tab" onclick="switchTab('tab-reader', this)">
+          <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          Active Module (Study Guide)
+        </div>
+        <div class="lms-tab" onclick="switchTab('tab-quiz', this)">
+          <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          Mastery Gate Quiz
+        </div>
+        <div class="lms-tab" onclick="switchTab('tab-srs', this)">
+          <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          Daily Spaced Repetition
+          <span class="badge badge-accent" style="font-size:10px">2</span>
+        </div>
+        <div class="lms-tab" onclick="switchTab('tab-research', this)">
+          <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Agent Research & Debate
+        </div>
+        <div class="lms-tab" onclick="switchTab('tab-ingest', this)">
+          <svg style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+          BYOS Knowledge Hub
+        </div>
+      </nav>
+
+      <!-- Workspace View Panels -->
+      <div class="workspace-body">
+        
+        <!-- VIEW 1: DAG / Learning Path -->
+        <div id="tab-dag" class="tab-view active">
+          <div class="placement-banner">
+            <div>
+              <strong>🎯 Binary Search Diagnostic Placement Complete!</strong>
+              <div style="font-size:12px;opacity:0.9;margin-top:2px;">Evaluated in 4 questions ($\mathcal{O}(\log N)$). Tiers 1–2 auto-marked as Mastered. Your active path starts at <strong>Tier 3: WAL Log Framing</strong>.</div>
+            </div>
+            <button class="btn btn-outline btn-sm" style="background:#fff;border-color:transparent" onclick="switchTab('tab-reader')">Resume Next Node →</button>
+          </div>
+
+          <div class="dag-tier">
+            <div class="dag-tier-title">
+              <span class="badge badge-ok">Tier 1 & 2 • Foundations</span>
+              <span>Mastered by Diagnostic Quiz</span>
+            </div>
+            <div class="dag-grid">
+              <div class="dag-node-card mastered">
+                <div class="node-header">
+                  <div class="node-title">01. Go Concurrency & Channels</div>
+                  <span class="badge badge-ok">✓ Mastered</span>
+                </div>
+                <div class="node-desc">Goroutine lifecycles, select multiplexing, and deadlocks in networked state machines.</div>
+                <div class="node-meta">
+                  <span>Prereq: None</span>
+                  <span>Placement Passed</span>
+                </div>
+              </div>
+
+              <div class="dag-node-card mastered">
+                <div class="node-header">
+                  <div class="node-title">02. State Machine Replication Basics</div>
+                  <span class="badge badge-ok">✓ Mastered</span>
+                </div>
+                <div class="node-desc">Determinism, Paxos vs. Raft decomposition, safety invariants and split-brain scenarios.</div>
+                <div class="node-meta">
+                  <span>Prereq: 01</span>
+                  <span>Placement Passed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dag-tier">
+            <div class="dag-tier-title">
+              <span class="badge badge-accent">Tier 3 • Core Consensus Implementation</span>
+              <span>Active Stage</span>
+            </div>
+            <div class="dag-grid">
+              <div class="dag-node-card active-node" onclick="switchTab('tab-reader')">
+                <div class="node-header">
+                  <div class="node-title">03. WAL Log Framing & AppendEntries</div>
+                  <span class="badge badge-accent">In Progress</span>
+                </div>
+                <div class="node-desc">Encoding log entries with CRC32 framing, batch disk flushing, and idempotent replication RPCs.</div>
+                <div class="node-meta">
+                  <span style="color:var(--accent);font-weight:600">Capstone Milestone #1</span>
+                  <span>Est: 35 min</span>
+                </div>
+              </div>
+
+              <div class="dag-node-card locked">
+                <div class="node-header">
+                  <div class="node-title">04. Leader Election & Heartbeat Timers</div>
+                  <span class="badge badge-subtle">🔒 Locked</span>
+                </div>
+                <div class="node-desc">Randomized election timeouts, RequestVote validation, and term increments.</div>
+                <div class="node-meta">
+                  <span>Prereq: 03</span>
+                  <span>Unlock via Mastery Gate</span>
+                </div>
+              </div>
+
+              <div class="dag-node-card locked">
+                <div class="node-header">
+                  <div class="node-title">05. Log Matching & Fast Rollback</div>
+                  <span class="badge badge-subtle">🔒 Locked</span>
+                </div>
+                <div class="node-desc">Handling mismatched leader/follower logs, conflict index calculation, and snapshotting.</div>
+                <div class="node-meta">
+                  <span>Prereq: 03, 04</span>
+                  <span>Unlock via Mastery Gate</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Capstone project footer banner -->
+          <div class="capstone-banner">
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent);font-weight:700">Threaded Capstone Project</div>
+              <h3 style="margin:4px 0;">Production-Ready Distributed Key-Value Store in Go</h3>
+              <p style="font-size:12px;color:var(--muted);">Every module you master adds a production commit to your local repository. Milestone 1/4 ready.</p>
+            </div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-outline btn-sm">Inspect Spec (PROJECT_BRIEF.md)</button>
+              <button class="btn btn-primary btn-sm" onclick="switchTab('tab-quiz')">Take Node 03 Gate Quiz</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 2: Active Module Reader + Socratic Sidekick -->
+        <div id="tab-reader" class="tab-view">
+          <div class="split-container">
+            <article class="module-article">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span class="badge badge-accent">Module 03 / 08 • Difficulty: Tier 3</span>
+                <span style="font-size:12px;color:var(--muted)">Source: <code>learning/raft-consensus-go/modules/03-wal-log-framing.md</code></span>
+              </div>
+              <h1>03. WAL Log Framing & AppendEntries</h1>
+              <p>In distributed state machine replication, the Write-Ahead Log (WAL) guarantees persistence before any state transition is applied. In this module, we examine why naive disk writes lead to corrupted consensus records during ungraceful leader power loss.</p>
+              
+              <h2>1. Binary Record Framing</h2>
+              <p>A resilient log format requires length-delimited framing combined with a cyclic redundancy check (CRC32 checksum) to detect partial torn writes:</p>
+              
+              <pre><code><span class="code-comment">// Record represents a binary framed entry on disk</span>
+<span class="code-keyword">type</span> LogRecord <span class="code-keyword">struct</span> {
+    CRC       uint32 <span class="code-comment">// CRC32-IEEE checksum of Term + Index + Payload</span>
+    Term      uint64 <span class="code-comment">// Raft term counter</span>
+    Index     uint64 <span class="code-comment">// Monotonic 1-based log index</span>
+    DataSize  uint32 <span class="code-comment">// Length of state machine payload</span>
+    Data      []<span class="code-keyword">byte</span> <span class="code-comment">// Command byte stream</span>
+}</code></pre>
+
+              <h2>2. Idempotent AppendEntries Semantics</h2>
+              <p>Network partitions frequently trigger duplicate RPC deliveries. Followers must verify the <code>(prevLogIndex, prevLogTerm)</code> condition before committing the incoming chunk into their WAL segment.</p>
+              
+              <div style="margin-top:30px;padding-top:20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:600">Ready to test your understanding?</div>
+                  <div style="font-size:12px;color:var(--muted)">Passing the Mastery Gate unlocks Node 04: Leader Election Timers.</div>
+                </div>
+                <button class="btn btn-primary" onclick="switchTab('tab-quiz')">Start Mastery Gate Quiz →</button>
+              </div>
+            </article>
+
+            <!-- Agent Chat Sidekick -->
+            <div class="agent-drawer">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span>
+                  <span>Kaneki Socratic Tutor</span>
+                </div>
+                <span class="badge badge-subtle">RAG Active</span>
+              </div>
+
+              <div class="chat-messages" id="chatMessages">
+                <div class="chat-bubble bubble-assistant">
+                  Hello Minh! I'm grounded in your Raft RAG references. How can I help you understand CRC32 record framing or AppendEntries safety?
+                  <div class="tool-chip">
+                    <svg style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    lms_search_rag(topic="torn_writes")
+                  </div>
+                </div>
+                <div class="chat-bubble bubble-user">
+                  Why not just use JSON or Protocol Buffers for the WAL entries directly?
+                </div>
+                <div class="chat-bubble bubble-assistant">
+                  Protobuf or JSON serializes structured payloads cleanly, but doesn't handle low-level disk boundaries. If the OS flushes 512 bytes of a 1024-byte protobuf before power cuts out, the decoder will fail with an unrecoverable corrupted stream.
+                  <br/><br/>
+                  A custom binary frame with a 4-byte CRC header lets your WAL reader discard incomplete tail entries cleanly upon crash recovery!
+                </div>
+              </div>
+
+              <div class="chat-input-bar">
+                <input class="chat-input" placeholder="Ask a question or request an analogy..." onkeydown="if(event.key==='Enter') sendMockMessage(this)"/>
+                <button class="btn btn-primary btn-sm" onclick="sendMockMessage(document.querySelector('.chat-input'))">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 3: Mastery Gate Quiz -->
+        <div id="tab-quiz" class="tab-view">
+          <div class="quiz-container">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <span class="badge badge-accent">Mastery Gate #03</span>
+                  <span style="margin-left:8px;font-weight:600">WAL Log Framing & AppendEntries</span>
+                </div>
+                <span style="font-size:12px;color:var(--muted)">Requires 100% to Unlock Node 04</span>
+              </div>
+              <div class="card-body">
+                <p style="font-size:15px;font-weight:600;margin-bottom:16px;">
+                  During crash recovery, a Raft node scans its WAL and encounters an entry where the computed CRC32 does not match the stored 4-byte header. What is the correct protocol behavior?
+                </p>
+
+                <div class="quiz-option" onclick="selectQuizOption(this, false)">
+                  <div class="quiz-letter">A</div>
+                  <div>Immediately panic and mark the entire database file as corrupt, refusing to boot.</div>
+                </div>
+
+                <div class="quiz-option" onclick="selectQuizOption(this, true)" id="correctOption">
+                  <div class="quiz-letter">B</div>
+                  <div>Truncate the log file starting from that corrupted offset, discard the uncommitted torn write, and accept log synchronization from the elected leader.</div>
+                </div>
+
+                <div class="quiz-option" onclick="selectQuizOption(this, false)">
+                  <div class="quiz-letter">C</div>
+                  <div>Skip the corrupted record, increment the log index by 1, and read the next record.</div>
+                </div>
+
+                <div class="quiz-option" onclick="selectQuizOption(this, false)">
+                  <div class="quiz-letter">D</div>
+                  <div>Broadcast a RequestVote RPC requesting historical log segments from quorum peers.</div>
+                </div>
+
+                <div id="quizFeedback" style="display:none;margin-top:20px;padding:14px;border-radius:var(--radius-sm);font-size:13px;"></div>
+
+                <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
+                  <button class="btn btn-outline" onclick="switchTab('tab-reader')">Review Study Guide</button>
+                  <button class="btn btn-primary" onclick="submitQuiz()">Submit Answer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 4: Spaced Repetition (SRS) Dashboard -->
+        <div id="tab-srs" class="tab-view">
+          <div style="max-width:900px;margin:0 auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+              <div>
+                <h2>Daily Spaced Repetition Queue</h2>
+                <div style="font-size:13px;color:var(--muted)">Powered by FSRS / SM-2 algorithms to cement long-term conceptual retention.</div>
+              </div>
+              <span class="badge badge-accent">2 reviews due today</span>
+            </div>
+
+            <div class="card" style="margin-bottom:24px;">
+              <table class="srs-table">
+                <thead>
+                  <tr>
+                    <th>Concept Node</th>
+                    <th>Last Reviewed</th>
+                    <th>Interval</th>
+                    <th>Stability / EF</th>
+                    <th>Due Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>01. Go Concurrency & Channels</strong>
+                      <div style="font-size:11px;color:var(--muted)">Select multiplexing & deadlocks</div>
+                    </td>
+                    <td>3 days ago</td>
+                    <td>7 days</td>
+                    <td>2.6 EF</td>
+                    <td><span class="badge badge-ok">Good (Due in 4d)</span></td>
+                    <td><button class="btn btn-outline btn-sm">Preview</button></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>02. State Machine Replication Basics</strong>
+                      <div style="font-size:11px;color:var(--muted)">Paxos vs Raft decomposition</div>
+                    </td>
+                    <td>Yesterday</td>
+                    <td>1 day</td>
+                    <td>2.1 EF</td>
+                    <td><span class="badge badge-danger">Due Today</span></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="alert('Starting quick 2-minute reconfirmation quiz for Node 02!')">Start Quiz</button></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>SQL Engine: B-Tree Index Traversal</strong>
+                      <div style="font-size:11px;color:var(--muted)">Page boundary splits & range scans</div>
+                    </td>
+                    <td>5 days ago</td>
+                    <td>5 days</td>
+                    <td>2.4 EF</td>
+                    <td><span class="badge badge-danger">Due Today</span></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="alert('Starting quick 2-minute reconfirmation quiz for B-Trees!')">Start Quiz</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Retention Graph Placeholder -->
+            <div class="card">
+              <div class="card-header">
+                <span>Estimated Memory Retention Curve</span>
+                <span class="badge badge-subtle">Average Stability: 14.8 Days</span>
+              </div>
+              <div class="card-body" style="height:140px;display:flex;align-items:center;justify-content:center;background:var(--surface-subtle);color:var(--muted);font-size:13px;">
+                📈 [FSRS Memory Curve Visualization: Retention probability over elapsed days per node]
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 5: Agent Research & 3-Round Debate -->
+        <div id="tab-research" class="tab-view">
+          <div style="max-width:850px;margin:0 auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+              <div>
+                <h2>Track 2: Agent Research & Validation Debate</h2>
+                <div style="font-size:13px;color:var(--muted)">Multi-perspective web research with strict 3-round peer-review defense.</div>
+              </div>
+              <span class="badge badge-ok">Status: Validated & Indexed</span>
+            </div>
+
+            <div class="card" style="margin-bottom:20px;">
+              <div class="card-header">
+                <span>Debate Transcript: Topic #01 "Raft Linearizability & Read Index"</span>
+                <span class="badge badge-subtle">Round 2 / 3</span>
+              </div>
+              <div class="card-body">
+                <div class="debate-round">
+                  <div class="debate-speaker" style="color:var(--accent)">
+                    <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                    Round 1 • Research Sub-Agent
+                  </div>
+                  <p style="font-size:13px;color:var(--fg)">Submitted initial draft synthesizing ReadIndex vs LeaseRead mechanisms for serving stale-free queries without log replication.</p>
+                </div>
+
+                <div class="debate-round" style="border-left-color:var(--danger)">
+                  <div class="debate-speaker" style="color:var(--danger)">
+                    <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    Round 1 • Validation Sub-Agent (Defects Raised)
+                  </div>
+                  <p style="font-size:13px;color:var(--fg)"><strong>Critique:</strong> LeaseRead claims clock-free linearizability. However, bounded clock drift or virtual machine CPU pausing can violate lease validity. Provide safety bounds or amend claims.</p>
+                </div>
+
+                <div class="debate-round" style="border-left-color:var(--ok)">
+                  <div class="debate-speaker" style="color:var(--ok)">
+                    <svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    Round 2 • Research Sub-Agent Defense & Resolution
+                  </div>
+                  <p style="font-size:13px;color:var(--fg)"><strong>Amended:</strong> Incorporated Section 6.4 of Ongaro's dissertation citing bound clock drift assumptions and contrasted against ReadIndex heartbeat quorums. <em>Validation Agent marked as ACCEPTED.</em></p>
+                </div>
+
+                <div style="background:var(--surface-subtle);border-radius:var(--radius-sm);padding:12px;display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+                  <span style="font-size:12px;color:var(--muted)">Committed to GitHub: <code>lms/raft-consensus-go/sources/research/01-linearizable-reads.md</code></span>
+                  <span class="badge badge-ok">Chunked & Vector Indexed</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW 6: BYOS Knowledge Hub -->
+        <div id="tab-ingest" class="tab-view">
+          <div style="max-width:800px;margin:0 auto;">
+            <div style="margin-bottom:20px;">
+              <h2>Track 1: Bring Your Own Sources (BYOS)</h2>
+              <div style="font-size:13px;color:var(--muted)">Upload PDF, DOCX, XLSX, or Markdown files. Kaneki normalizes tables and chunks content into Neon pgvector.</div>
+            </div>
+
+            <div class="card" style="margin-bottom:24px;border:2px dashed var(--border);text-align:center;padding:40px 20px;cursor:pointer;">
+              <svg style="width:40px;height:40px;color:var(--muted);margin-bottom:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <div style="font-weight:600;font-size:14px;margin-bottom:4px;">Drag and drop study files here, or browse</div>
+              <div style="font-size:12px;color:var(--muted)">Supports .pdf, .docx, .xlsx, .csv, and .md (up to 50MB)</div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <span>Ingested User Sources</span>
+                <span class="badge badge-subtle">3 Documents</span>
+              </div>
+              <table class="srs-table">
+                <thead>
+                  <tr>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Normalized GitHub Path</th>
+                    <th>pgvector Chunks</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>raft-extended.pdf</strong></td>
+                    <td>PDF</td>
+                    <td><code>lms/raft-consensus-go/sources/user/raft-extended.md</code></td>
+                    <td>42 Chunks</td>
+                    <td><span class="badge badge-ok">Ready</span></td>
+                  </tr>
+                  <tr>
+                    <td><strong>benchmark-latency.xlsx</strong></td>
+                    <td>Excel Table</td>
+                    <td><code>lms/raft-consensus-go/sources/user/benchmark-latency.md</code></td>
+                    <td>8 Chunks</td>
+                    <td><span class="badge badge-ok">Ready</span></td>
+                  </tr>
+                  <tr>
+                    <td><strong>personal-notes.md</strong></td>
+                    <td>Markdown</td>
+                    <td><code>lms/raft-consensus-go/sources/user/personal-notes.md</code></td>
+                    <td>14 Chunks</td>
+                    <td><span class="badge badge-ok">Ready</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+    }
+
+    function switchTab(tabId, el) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+
+      if (el) {
+        document.querySelectorAll('.lms-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+      } else {
+        document.querySelectorAll('.lms-tab').forEach(t => {
+          if (t.getAttribute('onclick')?.includes(tabId)) {
+            document.querySelectorAll('.lms-tab').forEach(x => x.classList.remove('active'));
+            t.classList.add('active');
+          }
+        });
+      }
+    }
+
+    let selectedOptionCorrect = null;
+    function selectQuizOption(el, isCorrect) {
+      document.querySelectorAll('.quiz-option').forEach(o => {
+        o.classList.remove('selected', 'correct');
+      });
+      el.classList.add('selected');
+      selectedOptionCorrect = isCorrect;
+    }
+
+    function submitQuiz() {
+      const feedback = document.getElementById('quizFeedback');
+      if (selectedOptionCorrect === null) {
+        alert('Please select an option before submitting!');
+        return;
+      }
+      feedback.style.display = 'block';
+      if (selectedOptionCorrect) {
+        feedback.style.background = 'var(--ok-soft)';
+        feedback.style.color = 'var(--ok)';
+        feedback.innerHTML = '<strong>✓ Correct! (Score: 100%)</strong><br/>Truncating torn entries and relying on subsequent leader AppendEntries maintains linearizability without unrecoverable crash states.<br/><br/><strong>Node 03 Passed! Unlocked Node 04: Leader Election Timers.</strong>';
+        document.getElementById('correctOption').classList.add('correct');
+      } else {
+        feedback.style.background = 'var(--danger-soft)';
+        feedback.style.color = 'var(--danger)';
+        feedback.innerHTML = '<strong>✗ Incorrect.</strong><br/>Skipping damaged records or panicking would permanently prevent leader log matching or destroy consensus safety. Review Section 2 in the Study Guide!';
+      }
+    }
+
+    function sendMockMessage(inputEl) {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      const container = document.getElementById('chatMessages');
+
+      const userBubble = document.createElement('div');
+      userBubble.className = 'chat-bubble bubble-user';
+      userBubble.innerText = text;
+      container.appendChild(userBubble);
+      inputEl.value = '';
+
+      setTimeout(() => {
+        const assistantBubble = document.createElement('div');
+        assistantBubble.className = 'chat-bubble bubble-assistant';
+        assistantBubble.innerHTML = `Great question regarding <em>"${text}"</em>! Grounded in <code>03-wal-log-framing.md</code>, Raft requires monotonic disk commitments before acknowledging quorums. Would you like to review an example Go implementation?`;
+        
+        const tool = document.createElement('div');
+        tool.className = 'tool-chip';
+        tool.innerHTML = `<svg style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> lms_search_rag(query="${text.slice(0, 15)}...")`;
+        assistantBubble.appendChild(tool);
+
+        container.appendChild(assistantBubble);
+        container.scrollTop = container.scrollHeight;
+      }, 600);
+    }
+  </script>
+</body>
+</html>

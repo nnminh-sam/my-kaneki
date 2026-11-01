@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { addTodo, MAX_TODO_LENGTH } from "@/lib/todos";
 import { saveNote, type ErrorCode } from "@/actions/github";
+import { createLmsAgentTools } from "@/lib/lms/lms-agent-tools";
 
 export type ToolResult<T extends object = object> = ({ success: true } & T) | { success: false; error: string };
 
@@ -55,5 +56,7 @@ export function createAgentTools(ownerId: string) {
         }
       },
     }),
+
+    ...createLmsAgentTools(ownerId),
   };
 }

@@ -3,7 +3,7 @@ export type WorkspaceNavItem = {
   label: string;
   description: string;
   href: string;
-  icon: "agent" | "home" | "learning" | "todos" | "notes";
+  icon: "agent" | "home" | "learning" | "todos" | "notes" | "ai-provider";
 };
 
 export type ExternalAppItem = {
@@ -24,7 +24,7 @@ export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
   },
   {
     id: "learning",
-    label: "Self-Learning",
+    label: "Learning",
     description: "Coding, Research, DSA & System Design",
     href: "/learning",
     icon: "learning",
@@ -42,6 +42,13 @@ export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
     description: "Knowledge base & study notes",
     href: "/notes",
     icon: "notes",
+  },
+  {
+    id: "ai-provider",
+    label: "AI Provider",
+    description: "AI providers, models & MCP API keys",
+    href: "/ai-provider",
+    icon: "ai-provider",
   },
 ] as const;
 

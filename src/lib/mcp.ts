@@ -55,3 +55,53 @@ export async function getPmAgentMcpTools(): Promise<McpIntegrationResult> {
     };
   }
 }
+
+/**
+ * Connects to the local or remote Kaneki LMS MCP server over HTTP if KANEKI_MCP_API_KEY is configured.
+ * Safely falls back to empty tools if not configured or if connection/initialization fails.
+ */
+export async function getLmsMcpTools(): Promise<McpIntegrationResult> {
+  const apiKey = process.env.KANEKI_MCP_API_KEY?.trim();
+  const url = process.env.KANEKI_LMS_MCP_URL?.trim();
+
+  if (!apiKey || !url) {
+    return {
+      tools: {},
+      close: async () => {},
+    };
+  }
+
+  try {
+    const client = await createMCPClient({
+      clientName: "kaneki-lms-client",
+      transport: {
+        type: "http",
+        url,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        redirect: "follow",
+      },
+    });
+
+    const tools = await client.tools();
+
+    return {
+      tools,
+      instructions: client.instructions,
+      close: async () => {
+        try {
+          await client.close();
+        } catch (closeErr) {
+          console.error("Error closing LMS MCP client:", closeErr);
+        }
+      },
+    };
+  } catch (err) {
+    console.error("Failed to connect or retrieve tools from LMS MCP server:", err);
+    return {
+      tools: {},
+      close: async () => {},
+    };
+  }
+}

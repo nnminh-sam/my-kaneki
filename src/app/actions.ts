@@ -13,6 +13,8 @@ import {
 } from "@/lib/auth";
 import { logIn, signUp as signUpUser, type AuthOutcome } from "@/lib/auth/users";
 import { currentOwnerId } from "@/lib/owner";
+import { setUserTheme } from "@/lib/settings";
+import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 import { addTodo, setTodoDone } from "@/lib/todos";
 import { revalidatePath } from "next/cache";
 
@@ -71,4 +73,17 @@ export async function toggleTodoAction(formData: FormData) {
   if (owner === null) redirect("/login");
   await setTodoDone(owner, field(formData, "id"), field(formData, "done") === "true");
   revalidatePath("/todos");
+}
+
+export async function setThemeAction(value: string) {
+  const theme = parseTheme(value);
+  if (!theme) return;
+  (await cookies()).set(THEME_COOKIE, theme, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+    secure: await secureCookie(),
+  });
+  const ownerId = await currentOwnerId();
+  if (ownerId) await setUserTheme(ownerId, theme);
 }

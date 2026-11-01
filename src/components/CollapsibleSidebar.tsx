@@ -38,6 +38,8 @@ export interface CollapsibleSidebarProps {
   collapsedWidthClass?: string;
   /** When collapsed, temporarily expand (as an overlay) while the mouse hovers the sidebar */
   expandOnHover?: boolean;
+  /** When true, sidebar is only used as a mobile drawer and hidden on desktop (md:hidden) */
+  mobileOnly?: boolean;
   /** Main scrollable body content */
   children: ReactNode | ((state: CollapsibleSidebarRenderState) => ReactNode);
   /** Optional footer content */
@@ -59,6 +61,7 @@ export function CollapsibleSidebar({
   expandedWidthClass = "md:w-68",
   collapsedWidthClass = "md:w-18",
   expandOnHover = false,
+  mobileOnly = false,
   children,
   footer,
 }: CollapsibleSidebarProps) {
@@ -110,7 +113,9 @@ export function CollapsibleSidebar({
     </>
   );
 
-  const wrapperClass = expandOnHover
+  const wrapperClass = mobileOnly
+    ? "md:hidden"
+    : expandOnHover
     ? `md:relative md:h-full md:shrink-0 ${pinnedCollapsed ? collapsedWidthClass : expandedWidthClass}`
     : "contents";
 
@@ -133,12 +138,14 @@ export function CollapsibleSidebar({
       <aside
         aria-label={ariaLabel ?? title}
         className={`fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-border bg-surface transition-all duration-200 ${
-          expandOnHover
+          mobileOnly
+            ? "md:hidden"
+            : expandOnHover
             ? `md:absolute md:left-0 md:top-0 md:h-full ${hoverExpanded ? "md:z-30 md:shadow-xl" : "md:z-10"}`
             : "md:static md:z-auto"
         } ${
           isCollapsed ? collapsedWidthClass : expandedWidthClass
-        } ${isMobileOpen ? "w-72 translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+        } ${isMobileOpen ? "w-72 sm:w-80 translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
         {/* Brand / Header */}
         <div

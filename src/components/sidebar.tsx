@@ -7,6 +7,7 @@ import {
   BookOpen,
   Bot,
   CheckSquare,
+  Cpu,
   ExternalLink,
   FileText,
   FolderKanban,
@@ -20,6 +21,8 @@ import { logout } from "@/app/actions";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 import { OllamaUsageModal } from "@/components/chat/OllamaUsageModal";
 import { SubmitButton } from "@/components/ui";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import type { Theme } from "@/lib/theme";
 import {
   EXTERNAL_APPS,
   WORKSPACE_NAV_ITEMS,
@@ -48,6 +51,8 @@ function WorkspaceIcon({
       return <CheckSquare className={className} />;
     case "notes":
       return <FileText className={className} />;
+    case "ai-provider":
+      return <Cpu className={className} />;
   }
 }
 
@@ -74,9 +79,11 @@ function isRouteActive(pathname: string, href: string): boolean {
 export function Sidebar({
   mode,
   user,
+  theme,
 }: {
   mode: AuthMode;
   user: { email: string; name?: string } | null;
+  theme: Theme;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -99,7 +106,10 @@ export function Sidebar({
           </button>
           <Link href="/">my_kaneki</Link>
         </div>
-        <OllamaUsageModal variant="icon" />
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle initial={theme} variant="icon" />
+          <OllamaUsageModal variant="icon" />
+        </div>
       </header>
 
       <CollapsibleSidebar
@@ -112,9 +122,14 @@ export function Sidebar({
         onMobileOpenChange={setMobileOpen}
         footer={({ collapsed }) => (
           <>
-            {/* Ollama usage: desktop sidebar only (mobile uses the top navbar button) */}
-            <div className="mb-3 hidden border-b border-border pb-3 md:block">
+            {/* Ollama usage and Theme switch: desktop sidebar only (mobile uses top navbar) */}
+            <div
+              className={`mb-3 hidden border-b border-border pb-3 md:flex ${
+                collapsed ? "flex-col items-center gap-2" : "flex-col gap-2.5"
+              }`}
+            >
               <OllamaUsageModal variant="sidebar" collapsed={collapsed} />
+              <ThemeToggle initial={theme} collapsed={collapsed} />
             </div>
             {mode === "jwt" && user ? (
               <div

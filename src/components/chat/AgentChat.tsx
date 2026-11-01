@@ -19,12 +19,17 @@ import {
 } from "lucide-react";
 import type { ChatSession } from "@/lib/chat-sessions";
 import { ActionModal } from "@/components/ActionModal";
+import { ModelSwitcher } from "@/components/ai/ModelSwitcher";
 import { ChatMessage } from "./ChatMessage";
 
 interface AgentChatProps {
   session: ChatSession;
   onUpdateSessionMessages: (sessionId: string, messages: UIMessage[]) => void;
   onRenameSession?: (sessionId: string, newTitle: string) => void;
+  systemPreamble?: string;
+  headerTitle?: string;
+  headerBadge?: string;
+  placeholder?: string;
 }
 
 const PROMPT_SUGGESTIONS = [
@@ -50,8 +55,16 @@ export function AgentChat({
   session,
   onUpdateSessionMessages,
   onRenameSession,
+  systemPreamble,
+  headerTitle,
+  headerBadge,
+  placeholder = "Ask a question, update notes, or manage tasks...",
 }: AgentChatProps) {
   const [input, setInput] = useState("");
+  const [activeModel, setActiveModel] = useState<{
+    provider: string;
+    model: string;
+  } | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(session.title || "New Chat");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -82,7 +95,7 @@ export function AgentChat({
     messages: session.messages,
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      body: { sessionId: session.id },
+      body: { sessionId: session.id, ...(systemPreamble ? { systemPreamble } : {}) },
     }),
     onFinish: ({ messages: updatedMessages }) => {
       latestMessagesRef.current = updatedMessages;
@@ -129,7 +142,17 @@ export function AgentChat({
     }
 
     try {
-      await sendMessage({ text });
+      await sendMessage(
+        { text },
+        activeModel
+          ? {
+              body: {
+                provider: activeModel.provider,
+                model: activeModel.model,
+              },
+            }
+          : undefined,
+      );
     } catch (err) {
       console.error("Failed to send message:", err);
     }
@@ -190,9 +213,9 @@ export function AgentChat({
             ) : (
               <div className="flex items-center gap-1.5 group/header-title">
                 <h1 className="text-sm font-semibold text-fg">
-                  {session.title || "New Chat"}
+                  {headerTitle ?? session.title ?? "New Chat"}
                 </h1>
-                {onRenameSession && (
+                {onRenameSession && !headerTitle && (
                   <button
                     type="button"
                     onClick={() => {
@@ -211,10 +234,16 @@ export function AgentChat({
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted">
-          <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px]">
-            <ShieldCheck className="h-3 w-3 text-ok" />
-            Audit Logging Active
-          </span>
+          {headerBadge ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-medium text-fg">
+              {headerBadge}
+            </span>
+          ) : (
+            <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px]">
+              <ShieldCheck className="h-3 w-3 text-ok" />
+              Audit Logging Active
+            </span>
+          )}
         </div>
       </div>
 
@@ -256,8 +285,8 @@ export function AgentChat({
           </div>
         ) : (
           <div className="flex flex-col py-4">
-            {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} />
+            {messages.map((m, idx) => (
+              <ChatMessage key={m.id || `msg-${idx}`} message={m} />
             ))}
 
             {isGenerating && (
@@ -294,7 +323,7 @@ export function AgentChat({
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Kaneki Agent to add todos, edit GitHub notes, or plan your day..."
+              placeholder={placeholder}
               className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-fg placeholder:text-muted focus:outline-hidden leading-relaxed"
             />
 
@@ -330,11 +359,19 @@ export function AgentChat({
             </div>
           </div>
 
-          <div className="mt-1.5 flex items-center justify-between px-1 text-[11px] text-muted">
-            <span>Press Enter to send, Shift+Enter for new line</span>
-            <span className="hidden sm:inline">
-              Actions logged to audit_log
-            </span>
+          <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted">
+            <span className="truncate">Press Enter to send, Shift+Enter for new line</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <ModelSwitcher
+                mode="chat"
+                compact
+                direction="up"
+                onChange={(sel) => setActiveModel(sel)}
+              />
+              <span className="hidden sm:inline">
+                Actions logged to audit_log
+              </span>
+            </div>
           </div>
         </div>
       </div>

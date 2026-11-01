@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentOwnerId } from "@/lib/owner";
+import { getUserAiConfig } from "@/lib/ai";
 
 export const maxDuration = 15;
 
@@ -29,11 +30,12 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const apiKey = process.env.OLLAMA_API_KEY?.trim();
+  const aiConfig = await getUserAiConfig(owner);
+  const apiKey = aiConfig.providers.ollama?.apiKey?.trim() || process.env.OLLAMA_API_KEY?.trim();
   if (!apiKey) {
     return NextResponse.json({
       ok: false,
-      error: "OLLAMA_API_KEY is not configured.",
+      error: "Ollama API key is not configured in Settings or .env.",
     });
   }
 

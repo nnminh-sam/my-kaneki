@@ -110,7 +110,8 @@ export function NoteEditor({ repoPath = "notes/inbox.md" }: NoteEditorProps) {
     setLoadingTree(true);
     const res = await getRepoTree();
     if (res.ok) {
-      setTreeFiles(res.files);
+      // Exclude LMS knowledge base from general markdown notes tree
+      setTreeFiles(res.files.filter((f) => !f.path.startsWith("lms/")));
     }
     setLoadingTree(false);
   }, []);

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   JWT_MIN_SECRET_LENGTH,
   SESSION_TTL_SECONDS,
@@ -109,6 +110,67 @@ export function isAuthorized(credentials: Credentials, opts: Opts = {}): boolean
   if (mode === "open") return true;
   if (mode === "locked") return false;
   return authenticate(credentials, opts) !== null;
+}
+
+import { verifyDatabaseMcpApiKey } from "./api-keys";
+
+export {
+  createMcpApiKey,
+  listMcpApiKeys,
+  revokeMcpApiKey,
+  verifyDatabaseMcpApiKey,
+  hashApiKey,
+  type McpApiKeyRecord,
+  type CreatedMcpApiKey,
+} from "./api-keys";
+
+export function authenticateMcpRequest(
+  credentials: Credentials,
+  { env = process.env, now = nowSeconds() }: Opts = {},
+): { ownerId: string } | null {
+  const bearer = bearerToken(credentials.authorization);
+  if (bearer && env.KANEKI_MCP_API_KEY) {
+    const keyBuf = Buffer.from(env.KANEKI_MCP_API_KEY);
+    const tokenBuf = Buffer.from(bearer);
+    if (keyBuf.length === tokenBuf.length && crypto.timingSafeEqual(keyBuf, tokenBuf)) {
+      return { ownerId: env.KANEKI_MCP_OWNER_ID ?? "" };
+    }
+  }
+
+  const mode = authMode(env);
+  if (mode === "open") {
+    return { ownerId: "" };
+  }
+  if (mode === "locked") {
+    return null;
+  }
+
+  const claims = authenticate(credentials, { env, now });
+  if (claims) {
+    return { ownerId: claims.sub };
+  }
+
+  return null;
+}
+
+/**
+ * Authenticates an inbound MCP request using:
+ * 1. User-registered API keys in the `mcp_api_keys` Postgres table (`Bearer knk_...`)
+ * 2. Static `.env` fallback (`KANEKI_MCP_API_KEY`)
+ * 3. Session JWT (`Bearer <jwt>` or session cookie) / Local open mode
+ */
+export async function authenticateMcpRequestAsync(
+  credentials: Credentials,
+  opts: Opts = {},
+): Promise<{ ownerId: string } | null> {
+  const bearer = bearerToken(credentials.authorization);
+  if (bearer) {
+    const dbKeyMatch = await verifyDatabaseMcpApiKey(bearer);
+    if (dbKeyMatch) {
+      return { ownerId: dbKeyMatch.ownerId };
+    }
+  }
+  return authenticateMcpRequest(credentials, opts);
 }
 
 /** A same-origin path to return to after login (no `//host` or `/\host`), else "/". */

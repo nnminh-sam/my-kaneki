@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { Sidebar } from "@/components/sidebar";
+import { currentTheme } from "@/lib/current-theme";
 import { SESSION_COOKIE, authMode, authenticate } from "@/lib/auth";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -9,11 +10,12 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       ? authenticate({ sessionCookie: (await cookies()).get(SESSION_COOKIE)?.value })
       : null;
 
+  const theme = await currentTheme();
   const user = session ? { email: session.email, name: session.name } : null;
 
   return (
     <div className="flex h-dvh overflow-hidden flex-col md:flex-row">
-      <Sidebar mode={mode} user={user} />
+      <Sidebar mode={mode} user={user} theme={theme} />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg">{children}</main>
     </div>
   );

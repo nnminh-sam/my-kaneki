@@ -17,8 +17,31 @@
   --ok-soft: #e9f5ee;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #111110;
+  --surface: #191918;
+  --surface-subtle: #222220;
+  --fg: #ecebe7;
+  --muted: #9b988f;
+  --border: #2c2b28;
+  --accent: #8d9bff;
+  --accent-soft: #23264a;
+  --danger: #ff8b80;
+  --danger-soft: #3a1f1c;
+  --warn: #f0c060;
+  --warn-soft: #36290f;
+  --ok: #7ad69c;
+  --ok-soft: #173123;
+  color-scheme: dark;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]),
+  :root[data-theme="system"] {
     --bg: #111110;
     --surface: #191918;
     --surface-subtle: #222220;
@@ -33,6 +56,19 @@
     --warn-soft: #36290f;
     --ok: #7ad69c;
     --ok-soft: #173123;
+    color-scheme: dark;
+  }
+}
+
+/* Tailwind `dark:` follows the explicit theme, or the OS preference when set to system. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
   }
 }
 

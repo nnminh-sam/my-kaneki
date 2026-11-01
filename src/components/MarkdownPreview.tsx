@@ -2,6 +2,9 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { normalizeLatexMath } from "@/lib/math";
 
 interface MarkdownPreviewProps {
   content: string;
@@ -20,7 +23,8 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps) {
     <div className="h-full overflow-y-auto rounded-md border border-border bg-surface p-6">
       <div className="prose prose-neutral dark:prose-invert max-w-none text-sm leading-relaxed">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
           components={{
             h1: ({ children }) => (
               <h1 className="mb-4 mt-6 border-b border-border pb-2 text-2xl font-bold tracking-tight text-fg first:mt-0">
@@ -120,7 +124,7 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps) {
             },
           }}
         >
-          {content}
+          {normalizeLatexMath(content)}
         </ReactMarkdown>
       </div>
     </div>

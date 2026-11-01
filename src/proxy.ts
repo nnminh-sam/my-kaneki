@@ -42,7 +42,9 @@ export async function proxy(request: NextRequest) {
     return deny(request, lockedMessage(), false);
   }
 
-  if (pathname.startsWith("/api/auth/")) return NextResponse.next();
+  if (pathname.startsWith("/api/auth/") || pathname === "/api/mcp" || pathname.startsWith("/api/mcp/")) {
+    return NextResponse.next();
+  }
 
   const authorization = request.headers.get("authorization");
   const cookie = request.cookies.get(SESSION_COOKIE)?.value;

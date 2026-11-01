@@ -4,49 +4,14 @@ import { useState } from "react";
 import type { UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { ChevronDown, ChevronRight, Lightbulb } from "lucide-react";
 import { ToolCallCard } from "./ToolCallCard";
+import { normalizeLatexMath } from "@/lib/math";
 
 interface ChatMessageProps {
   message: UIMessage;
-}
-
-const LATEX_SYMBOLS: Record<string, string> = {
-  rightarrow: "→",
-  to: "→",
-  leftarrow: "←",
-  gets: "←",
-  leftrightarrow: "↔",
-  Rightarrow: "⇒",
-  Leftarrow: "⇐",
-  Leftrightarrow: "⇔",
-  uparrow: "↑",
-  downarrow: "↓",
-  times: "×",
-  div: "÷",
-  pm: "±",
-  leq: "≤",
-  le: "≤",
-  geq: "≥",
-  ge: "≥",
-  neq: "≠",
-  ne: "≠",
-  approx: "≈",
-  infty: "∞",
-  cdot: "·",
-  checkmark: "✓",
-};
-
-/** Converts simple inline LaTeX like `$\rightarrow$` into unicode, leaving code untouched. */
-function normalizeLatexSymbols(text: string): string {
-  return text
-    .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
-    .map((chunk, i) =>
-      i % 2 === 1
-        ? chunk
-        : chunk.replace(/\$\s*\\([A-Za-z]+)\s*\$/g, (match, name: string) => LATEX_SYMBOLS[name] ?? match),
-    )
-    .join("");
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
@@ -63,7 +28,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <div
           className={`text-sm leading-relaxed ${
             isUser
-              ? "rounded-2xl rounded-tr-xs border border-white/10 bg-neutral-900 text-white px-4 py-2.5 shadow-xs"
+              ? "rounded-2xl rounded-tr-xs bg-accent text-white px-4 py-2.5 shadow-xs"
               : "w-full text-fg"
           }`}
         >
@@ -79,7 +44,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
               return (
                 <div key={index} className="prose prose-neutral dark:prose-invert max-w-none text-sm leading-relaxed">
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
                     components={{
                       h1: ({ children }) => <h1 className="mb-2 mt-4 text-lg font-bold text-fg first:mt-0">{children}</h1>,
                       h2: ({ children }) => <h2 className="mb-2 mt-4 text-base font-bold text-fg first:mt-0">{children}</h2>,
@@ -137,7 +103,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                       ),
                     }}
                   >
-                    {normalizeLatexSymbols(part.text)}
+                    {normalizeLatexMath(part.text)}
                   </ReactMarkdown>
                 </div>
               );
