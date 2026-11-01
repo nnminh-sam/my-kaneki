@@ -377,9 +377,11 @@ export function AgentChat({
                 direction="up"
                 onChange={(sel) => setActiveModel(sel)}
               />
-              <span className="hidden sm:inline">
-                Actions logged to audit_log
-              </span>
+              {!headerBadge && (
+                <span className="hidden sm:inline">
+                  Actions logged to audit_log
+                </span>
+              )}
             </div>
           </div>
         </div>

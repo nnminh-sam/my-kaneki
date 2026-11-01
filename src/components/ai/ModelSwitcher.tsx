@@ -14,6 +14,7 @@ interface ModelSwitcherProps {
   onChange?: (selection: { provider: string; model: string }) => void;
   compact?: boolean;
   direction?: "up" | "down";
+  align?: "left" | "right" | "auto";
 }
 
 const PROVIDER_SHORT_LABELS: Record<string, string> = {
@@ -29,8 +30,13 @@ export function ModelSwitcher({
   onChange,
   compact = false,
   direction = "up",
+  align = "auto",
 }: ModelSwitcherProps) {
   const [open, setOpen] = useState(false);
+  const [resolvedAlign, setResolvedAlign] = useState<"left" | "right">(
+    align === "left" ? "left" : "right",
+  );
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const [provider, setProvider] = useState<string>(
     mode === "chat" ? "ollama" : "openrouter",
   );
@@ -48,6 +54,63 @@ export function ModelSwitcher({
   >({});
   const [saving, setSaving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const updateDropdownPosition = () => {
+    if (!containerRef.current) return;
+    if (align === "left" || align === "right") {
+      setResolvedAlign(align);
+      setDropdownStyle({});
+      return;
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const dropdownWidth = 304; // w-76 = 19rem = 304px
+
+    // Determine the clipping boundaries by inspecting ancestors
+    let leftBoundary = 8;
+    let rightBoundary = window.innerWidth - 8;
+
+    let parent = containerRef.current.parentElement;
+    while (parent && parent !== document.body) {
+      const style = window.getComputedStyle(parent);
+      const ox = style.overflowX;
+      const o = style.overflow;
+      if (
+        o === "hidden" ||
+        o === "auto" ||
+        o === "scroll" ||
+        ox === "hidden" ||
+        ox === "auto" ||
+        ox === "scroll"
+      ) {
+        const pRect = parent.getBoundingClientRect();
+        leftBoundary = Math.max(leftBoundary, pRect.left + 8);
+        rightBoundary = Math.min(rightBoundary, pRect.right - 8);
+        break;
+      }
+      parent = parent.parentElement;
+    }
+
+    const wouldOverflowLeftWithRightAlign =
+      rect.right - dropdownWidth < leftBoundary;
+    const wouldOverflowRightWithLeftAlign =
+      rect.left + dropdownWidth > rightBoundary;
+
+    if (wouldOverflowLeftWithRightAlign && !wouldOverflowRightWithLeftAlign) {
+      setResolvedAlign("left");
+      setDropdownStyle({});
+    } else if (!wouldOverflowLeftWithRightAlign) {
+      setResolvedAlign("right");
+      setDropdownStyle({});
+    } else {
+      // Narrow container: pin to left and clamp maxWidth to available space
+      setResolvedAlign("left");
+      const availableWidth = Math.max(220, rightBoundary - leftBoundary);
+      setDropdownStyle({
+        maxWidth: `${availableWidth}px`,
+      });
+    }
+  };
 
   async function loadConfig(syncActive = false) {
     try {
@@ -75,9 +138,20 @@ export function ModelSwitcher({
   useEffect(() => {
     if (open) {
       void loadConfig(false);
+      updateDropdownPosition();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, align]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleResize() {
+      updateDropdownPosition();
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, align]);
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
@@ -150,7 +224,12 @@ export function ModelSwitcher({
     <div ref={containerRef} className="relative inline-block text-left">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          if (!open) {
+            updateDropdownPosition();
+          }
+          setOpen((prev) => !prev);
+        }}
         title={`Switch ${mode === "chat" ? "Chat LLM" : "Embedding"} Provider & Model`}
         className={`inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-subtle/80 text-fg transition-colors hover:border-accent/40 hover:bg-surface cursor-pointer ${
           compact ? "px-2 py-1 text-[11px]" : "px-2.5 py-1.5 text-xs"
@@ -177,7 +256,10 @@ export function ModelSwitcher({
 
       {open && (
         <div
-          className={`absolute right-0 z-50 w-76 rounded-xl border border-border bg-surface p-3 shadow-lg ${
+          style={dropdownStyle}
+          className={`absolute z-50 w-76 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface p-3 shadow-lg ${
+            resolvedAlign === "left" ? "left-0" : "right-0"
+          } ${
             direction === "up" ? "bottom-full mb-2" : "top-full mt-2"
           }`}
         >
