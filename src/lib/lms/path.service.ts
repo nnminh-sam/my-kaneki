@@ -70,6 +70,17 @@ export async function draftLearningPath(
   const validatedSources = sources.filter((s) => s.validation_status === "validated");
   const validSourceIds = validatedSources.map((s) => s.id);
 
+  if (validatedSources.length === 0) {
+    const isPaused = (params.attemptRound ?? 1) >= 3;
+    return {
+      valid: false,
+      pausedForUserPathDecision: isPaused,
+      errors: [
+        `Subject "${subjectSlug}" has no validated knowledge sources. Please ingest or upload knowledge sources (via BYOS or research) before drafting a learning path.`,
+      ],
+    };
+  }
+
   // 2. Structural & pedagogical validation
   const validationReport = validatePath({
     nodes: params.nodes.map((n) => ({
@@ -110,7 +121,10 @@ export async function draftLearningPath(
   }
 
   // 4. Save study materials to GitHub if provided
-  const preparedNodes = [...params.nodes];
+  const preparedNodes = params.nodes.map((n, idx) => ({
+    ...n,
+    ordinal: n.ordinal && n.ordinal > 0 ? n.ordinal : idx + 1,
+  }));
   for (const n of preparedNodes) {
     if (n.studyGuideMarkdown) {
       const ordinalStr = String(n.ordinal ?? 1).padStart(2, "0");

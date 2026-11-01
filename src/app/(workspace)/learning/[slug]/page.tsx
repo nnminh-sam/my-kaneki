@@ -8,9 +8,9 @@ import {
   listQuizzesForSubject,
 } from "@/lib/lms/repo";
 import { PlacementBanner } from "@/components/lms/PlacementBanner";
-import { DagTierSection } from "@/components/lms/DagTierSection";
+import { LearningPathDagView } from "@/components/lms/LearningPathDagView";
 import { CapstoneBanner } from "@/components/lms/CapstoneBanner";
-import { GitFork, Network, Sparkles } from "lucide-react";
+import { GitFork, Sparkles } from "lucide-react";
 import Link from "next/link";
 import type { NodeRow } from "@/lib/lms/types";
 
@@ -75,16 +75,6 @@ export default async function LearningPathPage({
     tierMap.get(tier)?.sort((a, b) => (a.ordinal || 0) - (b.ordinal || 0));
   }
 
-  // Generate Mermaid diagram text for optional <details> view
-  let mermaidDiagram = "graph TD\n";
-  for (const n of nodes) {
-    const safeTitle = n.title.replace(/["\\]/g, "");
-    mermaidDiagram += `  node_${n.id}["${String(n.ordinal || 1).padStart(2, "0")}. ${safeTitle}"]\n`;
-  }
-  for (const e of edges) {
-    mermaidDiagram += `  node_${e.depends_on_node_id} --> node_${e.node_id}\n`;
-  }
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       {/* Placement Status Banner */}
@@ -95,7 +85,7 @@ export default async function LearningPathPage({
         activePlacementQuizId={activePlacementQuiz?.id}
       />
 
-      {/* Nodes by Tiers */}
+      {/* Nodes by Tiers / Mermaid DAG */}
       {nodes.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface p-12 text-center shadow-xs">
           <GitFork className="mx-auto h-10 w-10 text-muted" />
@@ -116,31 +106,14 @@ export default async function LearningPathPage({
           </div>
         </div>
       ) : (
-        <div>
-          {sortedTiers.map((tier) => (
-            <DagTierSection
-              key={tier}
-              tier={tier}
-              nodes={tierMap.get(tier) ?? []}
-              subjectSlug={subject.slug}
-              allNodesMap={allNodesMap}
-              nodeEdges={edges}
-            />
-          ))}
-
-          {/* Optional Mermaid DAG Details */}
-          {edges.length > 0 && (
-            <details className="mt-6 rounded-xl border border-border bg-surface p-4 group">
-              <summary className="flex items-center gap-2 text-xs font-semibold text-muted hover:text-fg cursor-pointer select-none">
-                <Network className="h-4 w-4 text-accent" />
-                <span>View Raw DAG Mermaid Graph</span>
-              </summary>
-              <div className="mt-3 overflow-x-auto rounded-lg bg-surface-subtle p-4 font-mono text-[11px] text-fg">
-                <pre>{mermaidDiagram}</pre>
-              </div>
-            </details>
-          )}
-        </div>
+        <LearningPathDagView
+          nodes={nodes}
+          edges={edges}
+          subjectSlug={subject.slug}
+          sortedTiers={sortedTiers}
+          tierMap={tierMap}
+          allNodesMap={allNodesMap}
+        />
       )}
 
       {/* Capstone Project Banner */}

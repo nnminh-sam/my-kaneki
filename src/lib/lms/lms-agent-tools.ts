@@ -8,7 +8,9 @@ import {
   listNodeEdges,
   getNodeById,
   getQuizById,
+  listSources,
 } from "./repo";
+import { ingestUserFile } from "./ingest";
 import {
   createLearningSubject,
   getSubjectOverview,
@@ -159,9 +161,73 @@ export function createLmsAgentTools(ownerId: string) {
       },
     }),
 
+    lmsListSources: tool({
+      description:
+        "List all knowledge sources for a subject with their IDs, titles, tracks, and validation statuses. Call this to retrieve valid sourceIds before calling lmsDraftLearningPath.",
+      inputSchema: z.object({
+        subjectSlug: z.string().min(1).describe("Target subject slug (e.g. data-structures-and-algorithms-dsa)"),
+      }),
+      execute: async (args): Promise<ToolResult<{ sources: unknown[] }>> => {
+        try {
+          const subject = await getSubjectBySlug(ownerId, args.subjectSlug);
+          if (!subject) {
+            return { success: false, error: `Subject "${args.subjectSlug}" not found.` };
+          }
+          const sources = await listSources(ownerId, subject.id);
+          return {
+            success: true,
+            sources: sources.map((s) => ({
+              id: s.id,
+              title: s.title,
+              track: s.track,
+              sourceType: s.source_type,
+              validationStatus: s.validation_status,
+              perspective: s.perspective,
+            })),
+          };
+        } catch (err) {
+          return failure(err);
+        }
+      },
+    }),
+
+    lmsIngestKnowledge: tool({
+      description:
+        "Ingest notes, textbook material, or reference markdown into the subject's knowledge base. Automatically registers as a validated knowledge source for grounding learning path nodes.",
+      inputSchema: z.object({
+        subjectSlug: z.string().min(1).describe("Target subject slug"),
+        filename: z.string().min(1).describe("Filename with extension, e.g. syllabus.md, algorithms.md"),
+        content: z.string().min(1).describe("Full markdown or text content of the knowledge source"),
+        title: z.string().optional().describe("Human-readable title"),
+        perspective: z.enum(["theory", "practical", "critique", "reference", "mixed"]).optional(),
+      }),
+      execute: async (args): Promise<ToolResult<{ sourceId: string; chunkCount: number }>> => {
+        try {
+          const result = await ingestUserFile({
+            ownerId,
+            subjectSlug: args.subjectSlug,
+            filename: args.filename,
+            bytes: Buffer.from(args.content, "utf-8"),
+            title: args.title,
+            perspective: args.perspective ?? "reference",
+          });
+          if (!result.success || !result.sourceId) {
+            return { success: false, error: result.error || "Failed to ingest knowledge file." };
+          }
+          return {
+            success: true,
+            sourceId: result.sourceId,
+            chunkCount: result.chunkCount,
+          };
+        } catch (err) {
+          return failure(err);
+        }
+      },
+    }),
+
     lmsDraftLearningPath: tool({
       description:
-        "Validate and commit a curriculum DAG of learning nodes, prerequisite edges, and capstone milestones. Enforces cycle freedom and difficulty monotonicity.",
+        "Validate and commit a curriculum DAG of learning nodes, prerequisite edges, and capstone milestones. Enforces cycle freedom, difficulty monotonicity, and source grounding. Every node MUST include sourceIds linking to one or more validated source IDs from lmsListSources or lmsIngestKnowledge.",
       inputSchema: z.object({
         subjectSlug: z.string().min(1),
         nodes: z.array(
@@ -173,7 +239,10 @@ export function createLmsAgentTools(ownerId: string) {
             summary: z.string().optional(),
             githubMdPath: z.string().optional(),
             projectMilestone: z.string().optional(),
-            sourceIds: z.array(z.string()).optional(),
+            sourceIds: z
+              .array(z.string())
+              .optional()
+              .describe("Validated source IDs (from lmsListSources or lmsIngestKnowledge) to ground this node"),
             studyGuideMarkdown: z.string().optional(),
           }),
         ),
