@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
@@ -144,14 +145,18 @@ export function AgentChat({
     try {
       await sendMessage(
         { text },
-        activeModel
-          ? {
-              body: {
-                provider: activeModel.provider,
-                model: activeModel.model,
-              },
-            }
-          : undefined,
+        {
+          body: {
+            sessionId: session.id,
+            ...(systemPreamble ? { systemPreamble } : {}),
+            ...(activeModel
+              ? {
+                  provider: activeModel.provider,
+                  model: activeModel.model,
+                }
+              : {}),
+          },
+        },
       );
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -239,10 +244,14 @@ export function AgentChat({
               {headerBadge}
             </span>
           ) : (
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px]">
+            <Link
+              href={`/audit?sessionId=${encodeURIComponent(session.id)}`}
+              title="Inspect API & tool call audit log for this session"
+              className="hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] transition-colors hover:border-accent/40 hover:text-fg"
+            >
               <ShieldCheck className="h-3 w-3 text-ok" />
-              Audit Logging Active
-            </span>
+              <span>Audit Logging Active</span>
+            </Link>
           )}
         </div>
       </div>

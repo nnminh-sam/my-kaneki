@@ -5,6 +5,11 @@ import { updateSessionMessages } from "@/lib/chat-db";
 import { getPmAgentMcpTools } from "@/lib/mcp";
 import { resolveChatLanguageModel, type ChatProviderId } from "@/lib/ai";
 import { recordUsage } from "@/lib/lms/usage";
+import {
+  estimateTextTokens,
+  recordLlmGenerationAudit,
+  wrapToolsWithSessionAudit,
+} from "@/lib/audit";
 
 export const maxDuration = 60;
 
@@ -21,6 +26,21 @@ function formatProviderError(err: unknown): string {
     } catch {}
   }
   return err instanceof Error ? err.message : "Agent error";
+}
+
+function extractLastUserPrompt(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role === "user" && Array.isArray(m.parts)) {
+      const text = m.parts
+        .filter((p) => p?.type === "text" && "text" in p && typeof p.text === "string")
+        .map((p) => (p as { text: string }).text)
+        .join("\n")
+        .trim();
+      if (text) return text;
+    }
+  }
+  return "";
 }
 
 export async function POST(req: Request) {
@@ -72,31 +92,81 @@ export async function POST(req: Request) {
     ? `${preamblePrefix}${baseSystem} You also have access to connected my_pm project management tools.`
     : `${preamblePrefix}${baseSystem}`;
 
-  const { model, providerId, modelId } = await resolveChatLanguageModel(owner, {
+  const { model, providerId, modelId, baseURL } = await resolveChatLanguageModel(owner, {
     provider: providerOverride,
     model: modelOverride,
   });
 
+  const endpoint = `${baseURL}/chat/completions`;
+  const lastUserPrompt = extractLastUserPrompt(messages);
+
   const startedAt = Date.now();
+  const auditedAgentTools = wrapToolsWithSessionAudit(createAgentTools(owner), {
+    ownerId: owner,
+    sessionId,
+    isMcp: false,
+  });
+  const auditedMcpTools = wrapToolsWithSessionAudit(mcpTools, {
+    ownerId: owner,
+    sessionId,
+    isMcp: true,
+  });
+
   const result = streamText({
     model,
     system,
     messages: await convertToModelMessages(messages),
     tools: {
-      ...createAgentTools(owner),
-      ...mcpTools,
+      ...auditedAgentTools,
+      ...auditedMcpTools,
     },
     stopWhen: isStepCount(5),
-    onFinish: async ({ usage }) => {
-      const totalTokens =
-        (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
-      await recordUsage({
-        ownerId: owner,
-        operation: "agent_tool",
-        model: `${providerId}:${modelId}`,
-        tokens: totalTokens,
-        durationMs: Date.now() - startedAt,
-      }).catch(() => {});
+    onFinish: async ({ text, usage, steps, finishReason }) => {
+      const durationMs = Date.now() - startedAt;
+
+      const toolNames: string[] = [];
+      for (const step of steps ?? []) {
+        for (const tc of step.toolCalls ?? []) {
+          if (tc.toolName) toolNames.push(tc.toolName);
+        }
+      }
+
+      const rawIn = usage?.inputTokens ?? 0;
+      const rawOut = usage?.outputTokens ?? 0;
+      const inputTokens =
+        rawIn > 0 ? rawIn : estimateTextTokens(system) + estimateTextTokens(lastUserPrompt);
+      const outputTokens =
+        rawOut > 0 ? rawOut : estimateTextTokens(text || "") + toolNames.length * 40;
+      const totalTokens = inputTokens + outputTokens;
+
+      await Promise.all([
+        recordUsage({
+          ownerId: owner,
+          operation: "agent_tool",
+          model: `${providerId}:${modelId}`,
+          tokens: totalTokens,
+          durationMs,
+        }).catch(() => {}),
+        recordLlmGenerationAudit({
+          ownerId: owner,
+          sessionId,
+          provider: providerId,
+          model: modelId,
+          endpoint,
+          stepCount: steps?.length || 1,
+          finishReason: finishReason ?? "stop",
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          durationMs,
+          toolCallCount: toolNames.length,
+          toolNames,
+          prompt: lastUserPrompt,
+          completion: text || "",
+          messageCount: messages.length,
+          status: "success",
+        }).catch(() => {}),
+      ]);
     },
   });
 
@@ -117,7 +187,28 @@ export async function POST(req: Request) {
     },
     onError: (err) => {
       void closeMcp();
-      return formatProviderError(err);
+      const formattedErr = formatProviderError(err);
+      void recordLlmGenerationAudit({
+        ownerId: owner,
+        sessionId,
+        provider: providerId,
+        model: modelId,
+        endpoint,
+        stepCount: 1,
+        finishReason: "error",
+        inputTokens: estimateTextTokens(lastUserPrompt),
+        outputTokens: 0,
+        totalTokens: estimateTextTokens(lastUserPrompt),
+        durationMs: Date.now() - startedAt,
+        toolCallCount: 0,
+        toolNames: [],
+        prompt: lastUserPrompt,
+        completion: "",
+        messageCount: messages.length,
+        status: "error",
+        error: formattedErr,
+      }).catch(() => {});
+      return formattedErr;
     },
   });
 }

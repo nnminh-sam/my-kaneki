@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
+  ShieldCheck,
   Terminal,
   Wallet,
 } from "lucide-react";
@@ -53,6 +54,8 @@ function WorkspaceIcon({
       return <FileText className={className} />;
     case "ai-provider":
       return <Cpu className={className} />;
+    case "audit":
+      return <ShieldCheck className={className} />;
   }
 }
 

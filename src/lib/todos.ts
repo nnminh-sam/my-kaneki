@@ -1,5 +1,5 @@
 import { getDb } from "./db";
-import type { AuditActor } from "./audit";
+import { getAuditContext, type AuditActor } from "./audit";
 
 export type Todo = { id: string; title: string; done: boolean; created_at: string };
 
@@ -44,6 +44,7 @@ export async function addTodo(
   const text = title.trim().slice(0, MAX_TODO_LENGTH);
   if (!text) return false;
   // Todo + audit row commit or roll back together; the CTE lets the audit row capture the generated id.
+  const ctx = getAuditContext();
   await getDb().transaction([
     {
       text: `with ins as (
@@ -51,9 +52,16 @@ export async function addTodo(
              )
              insert into audit_log (action, entity_type, entity_id, actor, payload)
              select 'todo.create', 'todo', id::text, $3,
-                    jsonb_build_object('owner_id', $1::text, 'after', jsonb_build_object('title', title, 'done', done))
+                    jsonb_strip_nulls(jsonb_build_object(
+                      'owner_id', $1::text,
+                      'ownerId', $1::text,
+                      'sessionId', $4::text,
+                      'toolCallId', $5::text,
+                      'toolName', $6::text,
+                      'after', jsonb_build_object('title', title, 'done', done)
+                    ))
              from ins`,
-      params: [ownerId, text, actor],
+      params: [ownerId, text, actor, ctx?.sessionId ?? null, ctx?.toolCallId ?? null, ctx?.toolName ?? null],
     },
   ]);
   return true;

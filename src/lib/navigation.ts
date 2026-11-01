@@ -3,7 +3,7 @@ export type WorkspaceNavItem = {
   label: string;
   description: string;
   href: string;
-  icon: "agent" | "home" | "learning" | "todos" | "notes" | "ai-provider";
+  icon: "agent" | "home" | "learning" | "todos" | "notes" | "ai-provider" | "audit";
 };
 
 export type ExternalAppItem = {
@@ -49,6 +49,13 @@ export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
     description: "AI providers, models & MCP API keys",
     href: "/ai-provider",
     icon: "ai-provider",
+  },
+  {
+    id: "audit",
+    label: "Audit Log",
+    description: "Session API calls, tools & telemetry",
+    href: "/audit",
+    icon: "audit",
   },
 ] as const;
 

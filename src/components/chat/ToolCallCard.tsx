@@ -135,26 +135,30 @@ export function ToolCallCard({
           {toolName !== "addTodo" && toolName !== "updateNote" && (
             <div className="flex flex-col gap-1.5 text-xs">
               {Object.keys(input).length > 0 && (
-                <div className="rounded bg-surface p-2 font-mono text-[11px] text-muted overflow-x-auto">
+                <div className="rounded bg-surface p-2 font-mono text-[11px] text-muted">
                   <span className="text-fg font-semibold not-mono block mb-1">
                     Parameters:
                   </span>
-                  {JSON.stringify(input, null, 2)}
+                  <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed">
+                    {JSON.stringify(input, null, 2)}
+                  </pre>
                 </div>
               )}
               {output && !isFailed && (
-                <div className="rounded bg-surface p-2 font-mono text-[11px] text-muted overflow-x-auto max-h-48">
+                <div className="rounded bg-surface p-2 font-mono text-[11px] text-muted max-h-60 overflow-y-auto">
                   <span className="text-fg font-semibold not-mono block mb-1">
                     Result:
                   </span>
-                  {typeof output === "string"
-                    ? output
-                    : "content" in output &&
-                        Array.isArray((output as any).content)
-                      ? (output as any).content
-                          .map((c: any) => c.text || JSON.stringify(c))
-                          .join("\n")
-                      : JSON.stringify(output, null, 2)}
+                  <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed">
+                    {typeof output === "string"
+                      ? output
+                      : "content" in output &&
+                          Array.isArray((output as any).content)
+                        ? (output as any).content
+                            .map((c: any) => c.text || JSON.stringify(c, null, 2))
+                            .join("\n")
+                        : JSON.stringify(output, null, 2)}
+                  </pre>
                 </div>
               )}
             </div>
