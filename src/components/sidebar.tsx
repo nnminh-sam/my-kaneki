@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,11 +14,13 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
+  Rocket,
   ShieldCheck,
   Terminal,
   Wallet,
 } from "lucide-react";
 import { logout } from "@/app/actions";
+import type { VercelDeploymentsApiResponse } from "@/app/api/vercel/deployments/route";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 import { OllamaUsageModal } from "@/components/chat/OllamaUsageModal";
 import { SubmitButton } from "@/components/ui";
@@ -31,6 +33,7 @@ import {
   type WorkspaceNavItem,
 } from "@/lib/navigation";
 import type { AuthMode } from "@/lib/auth";
+import type { VercelDeploymentState } from "@/lib/vercel";
 
 export { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 
@@ -52,11 +55,42 @@ function WorkspaceIcon({
       return <CheckSquare className={className} />;
     case "notes":
       return <FileText className={className} />;
+    case "deployments":
+      return <Rocket className={className} />;
     case "ai-provider":
       return <Cpu className={className} />;
     case "audit":
       return <ShieldCheck className={className} />;
   }
+}
+
+function StatusDot({ state }: { state?: VercelDeploymentState }) {
+  if (!state) return null;
+  if (state === "READY") {
+    return (
+      <span
+        title="Vercel Deployment: Ready"
+        className="h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+      />
+    );
+  }
+  if (state === "BUILDING" || state === "INITIALIZING" || state === "QUEUED") {
+    return (
+      <span
+        title={`Vercel Deployment: ${state}`}
+        className="h-2 w-2 shrink-0 rounded-full bg-amber-500 animate-pulse"
+      />
+    );
+  }
+  if (state === "ERROR") {
+    return (
+      <span
+        title="Vercel Deployment: Error"
+        className="h-2 w-2 shrink-0 rounded-full bg-danger"
+      />
+    );
+  }
+  return null;
 }
 
 function ExternalAppIcon({
@@ -90,6 +124,38 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [appStatuses, setAppStatuses] = useState<
+    Record<string, VercelDeploymentState>
+  >({});
+  const [buildingCount, setBuildingCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const loadVercelStatuses = async () => {
+      try {
+        const res = await fetch("/api/vercel/deployments?limit=25", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as VercelDeploymentsApiResponse;
+        if (!active || !json.data) return;
+        const nextMap: Record<string, VercelDeploymentState> = {};
+        for (const [appId, info] of Object.entries(
+          json.data.externalAppStatuses,
+        )) {
+          nextMap[appId] = info.state;
+        }
+        setAppStatuses(nextMap);
+        setBuildingCount(json.data.counts.building + json.data.counts.queued);
+      } catch {}
+    };
+    void loadVercelStatuses();
+    const timer = setInterval(() => void loadVercelStatuses(), 30_000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   return (
     <>
@@ -218,7 +284,15 @@ export function Sidebar({
                       />
                       {!collapsed && (
                         <div className="min-w-0 flex-1">
-                          <p className="truncate leading-tight">{item.label}</p>
+                          <div className="flex items-center justify-between gap-1.5">
+                            <p className="truncate leading-tight">{item.label}</p>
+                            {item.id === "deployments" && buildingCount > 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                {buildingCount}
+                              </span>
+                            )}
+                          </div>
                           <p className="truncate text-[11px] font-normal text-muted/80">
                             {item.description}
                           </p>
@@ -258,9 +332,12 @@ export function Sidebar({
                     {!collapsed && (
                       <>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-mono text-xs font-medium text-fg">
-                            {app.label}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="truncate font-mono text-xs font-medium text-fg">
+                              {app.label}
+                            </p>
+                            <StatusDot state={appStatuses[app.id]} />
+                          </div>
                           <p className="truncate text-[11px] text-muted/80">
                             {app.description}
                           </p>

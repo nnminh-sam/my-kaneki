@@ -3,7 +3,15 @@ export type WorkspaceNavItem = {
   label: string;
   description: string;
   href: string;
-  icon: "agent" | "home" | "learning" | "todos" | "notes" | "ai-provider" | "audit";
+  icon:
+    | "agent"
+    | "home"
+    | "learning"
+    | "todos"
+    | "notes"
+    | "deployments"
+    | "ai-provider"
+    | "audit";
 };
 
 export type ExternalAppItem = {
@@ -42,6 +50,13 @@ export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
     description: "Knowledge base & study notes",
     href: "/notes",
     icon: "notes",
+  },
+  {
+    id: "deployments",
+    label: "Deployments",
+    description: "Vercel projects, builds & live status",
+    href: "/deployments",
+    icon: "deployments",
   },
   {
     id: "ai-provider",

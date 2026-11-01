@@ -3,6 +3,7 @@ import { z } from "zod";
 import { addTodo, MAX_TODO_LENGTH } from "@/lib/todos";
 import { saveNote, type ErrorCode } from "@/actions/github";
 import { createLmsAgentTools } from "@/lib/lms/lms-agent-tools";
+import { fetchVercelDashboard, type VercelDeploymentItem } from "@/lib/vercel";
 
 export type ToolResult<T extends object = object> = ({ success: true } & T) | { success: false; error: string };
 
@@ -51,6 +52,62 @@ export function createAgentTools(ownerId: string) {
           const res = await saveNote(path, content, baseSha ?? null, "ai-agent");
           if (!res.ok) return { success: false, error: GITHUB_LABELS[res.code] ?? res.error };
           return { success: true, path, commitUrl: res.commitUrl };
+        } catch (err) {
+          return failure(err);
+        }
+      },
+    }),
+
+    getVercelDeployments: tool({
+      description:
+        "Fetch recent Vercel deployments and live status across all projects (or filtered by project, state, or target).",
+      inputSchema: z.object({
+        projectId: z
+          .string()
+          .optional()
+          .describe("Optional project name or ID (e.g. my_kaneki, my_finance, my_pm_agent)"),
+        state: z
+          .enum(["READY", "BUILDING", "ERROR", "QUEUED", "CANCELED"])
+          .optional()
+          .describe("Optional deployment status filter"),
+        target: z
+          .enum(["production", "preview"])
+          .optional()
+          .describe("Optional deployment environment target"),
+        limit: z.number().int().min(1).max(30).optional().default(10),
+      }),
+      execute: async ({
+        projectId,
+        state,
+        target,
+        limit,
+      }): Promise<
+        ToolResult<{
+          configured: boolean;
+          counts: Record<string, number>;
+          deployments: VercelDeploymentItem[];
+        }>
+      > => {
+        try {
+          const dash = await fetchVercelDashboard(ownerId, {
+            projectId,
+            state,
+            target,
+            limit: limit ?? 10,
+          });
+          if (!dash.config.configured) {
+            return {
+              success: false,
+              error:
+                "Vercel Access Token is not configured yet. Configure it in /deployments.",
+            };
+          }
+          return {
+            success: true,
+            configured: true,
+            counts: dash.counts,
+            deployments: dash.deployments.slice(0, limit ?? 10),
+          };
         } catch (err) {
           return failure(err);
         }

@@ -11,6 +11,7 @@ import {
   FileText,
   FolderKanban,
   Loader2,
+  Rocket,
   Wrench,
 } from "lucide-react";
 
@@ -55,6 +56,9 @@ export function ToolCallCard({
   } else if (toolName === "updateNote") {
     toolIcon = <FileText className="h-4 w-4 text-accent" />;
     label = "Update Note";
+  } else if (toolName === "getVercelDeployments") {
+    toolIcon = <Rocket className="h-4 w-4 text-accent" />;
+    label = "Check Vercel Deployments";
   } else if (isPmTool) {
     toolIcon = <FolderKanban className="h-4 w-4 text-accent" />;
     label = toolName.replace(/^(my[-_]?pm)[-_:]?/i, "PM: ").replace(/_/g, " ");
