@@ -213,7 +213,7 @@ export function OverviewChatApp({ initialSessions }: OverviewChatAppProps) {
       />
 
       {/* Right Main Chat Window */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      <div className="flex flex-1 flex-col overflow-hidden min-h-0 min-w-0">
         {activeSession ? (
           <AgentChat
             key={activeSession.id}

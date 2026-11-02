@@ -72,7 +72,7 @@ Pedagogical guidelines:
       </div>
 
       {/* Embedded Scoped AgentChat */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         <AgentChat
           session={session}
           onUpdateSessionMessages={handleUpdateMessages}

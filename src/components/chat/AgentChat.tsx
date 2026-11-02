@@ -22,7 +22,9 @@ import {
 import type { ChatSession } from "@/lib/chat-sessions";
 import { ActionModal } from "@/components/ActionModal";
 import { ModelSwitcher } from "@/components/ai/ModelSwitcher";
-import { ChatMessage } from "./ChatMessage";
+import { ChatMessage, type ChatMessageActionProps } from "./ChatMessage";
+
+export type { ChatMessageActionProps };
 
 interface AgentChatProps {
   session: ChatSession;
@@ -32,6 +34,7 @@ interface AgentChatProps {
   headerTitle?: string;
   headerBadge?: string;
   placeholder?: string;
+  renderMessageActions?: (props: ChatMessageActionProps) => React.ReactNode;
 }
 
 const PROMPT_SUGGESTIONS = [
@@ -61,6 +64,7 @@ export function AgentChat({
   headerTitle,
   headerBadge,
   placeholder = "Ask a question, update notes, or manage tasks...",
+  renderMessageActions,
 }: AgentChatProps) {
   const [input, setInput] = useState("");
   const [activeModel, setActiveModel] = useState<{
@@ -71,6 +75,7 @@ export function AgentChat({
   const [titleInput, setTitleInput] = useState(session.title || "New Chat");
   const [copiedId, setCopiedId] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -143,10 +148,27 @@ export function AgentChat({
     latestMessagesRef.current = messages;
   }, [messages]);
 
-  // Auto-scroll when new messages or chunks arrive
+  // Auto-scroll messages container internally without scrolling page or parent layout
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
   }, [messages, status]);
+
+  // Ensure window and parent containers stay at top 0 on initial session load
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+    const timer = setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop =
+          messagesContainerRef.current.scrollHeight;
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [session.id]);
 
   // Save latest messages on unmount
   useEffect(() => {
@@ -202,7 +224,7 @@ export function AgentChat({
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-bg">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-bg">
       {/* Top Header */}
       <div className="hidden h-15 shrink-0 items-center justify-between border-b border-border bg-surface px-6 md:flex">
         <div className="flex items-center gap-2.5 min-w-0 mr-4">
@@ -302,7 +324,10 @@ export function AgentChat({
       </div>
 
       {/* Messages Stream Area */}
-      <div className="flex-1 overflow-y-auto pt-12 md:pt-0">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto pt-12 md:pt-0"
+      >
         {messages.length === 0 ? (
           <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center p-6 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent ring-8 ring-accent-soft/50 shadow-sm">
@@ -340,7 +365,11 @@ export function AgentChat({
         ) : (
           <div className="flex flex-col py-4">
             {messages.map((m, idx) => (
-              <ChatMessage key={m.id || `msg-${idx}`} message={m} />
+              <ChatMessage
+                key={m.id || `msg-${idx}`}
+                message={m}
+                actions={renderMessageActions}
+              />
             ))}
 
             {isGenerating && (
@@ -368,7 +397,7 @@ export function AgentChat({
       />
 
       {/* Bottom Input Box */}
-      <div className="border-t border-border bg-surface p-4">
+      <div className="shrink-0 border-t border-border bg-surface p-4">
         <div className="mx-auto max-w-3xl">
           <div className="relative flex items-end rounded-xl border border-border bg-bg p-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-all">
             <textarea

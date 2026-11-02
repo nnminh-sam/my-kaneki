@@ -6,25 +6,88 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { ChevronDown, ChevronRight, Lightbulb } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, Lightbulb } from "lucide-react";
 import { ToolCallCard } from "./ToolCallCard";
 import { normalizeLatexMath } from "@/lib/math";
 
-interface ChatMessageProps {
+export interface ChatMessageActionProps {
   message: UIMessage;
+  isUser: boolean;
+  text: string;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export interface ChatMessageProps {
+  message: UIMessage;
+  actions?:
+    | React.ReactNode
+    | ((props: ChatMessageActionProps) => React.ReactNode);
+}
+
+function getMessageText(message: UIMessage): string {
+  if (Array.isArray(message.parts)) {
+    const textParts = message.parts
+      .filter(
+        (p): p is { type: "text"; text: string } =>
+          p.type === "text" && typeof p.text === "string",
+      )
+      .map((p) => p.text)
+      .filter((t) => t.trim().length > 0);
+    if (textParts.length > 0) {
+      return textParts.join("\n\n");
+    }
+  }
+  const content = (message as unknown as { content?: unknown }).content;
+  if (typeof content === "string") {
+    return content;
+  }
+  return "";
+}
+
+export function ChatMessage({ message, actions }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [showReasoning, setShowReasoning] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const messageText = getMessageText(message);
+  const hasText = messageText.trim().length > 0;
+  const hasActions = hasText || !!actions;
+
+  const handleCopy = async () => {
+    if (!hasText) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(messageText);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = messageText;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy message:", err);
+    }
+  };
 
   return (
     <div
-      className={`flex w-full gap-3 px-4 py-3 transition-colors ${
-        isUser ? "bg-transparent justify-end" : "bg-surface/50 border-y border-border/40"
+      className={`group/msg flex w-full gap-3 px-4 py-3 transition-colors ${
+        isUser
+          ? "bg-transparent justify-end"
+          : "bg-surface/50 border-y border-border/40"
       }`}
     >
-      <div className={`flex flex-col gap-2 max-w-[85%] ${isUser ? "items-end" : "items-start flex-1"}`}>
+      <div
+        className={`flex flex-col gap-1.5 max-w-[85%] ${
+          isUser ? "items-end" : "items-start flex-1"
+        }`}
+      >
         <div
           className={`text-sm leading-relaxed ${
             isUser
@@ -161,6 +224,49 @@ export function ChatMessage({ message }: ChatMessageProps) {
             return null;
           })}
         </div>
+
+        {/* Function button section below message */}
+        {hasActions && (
+          <div
+            className={`flex items-center gap-1 text-xs transition-opacity ${
+              isUser ? "justify-end" : "justify-start"
+            } ${
+              copied
+                ? "opacity-100"
+                : "opacity-100 md:opacity-0 md:group-hover/msg:opacity-100 md:focus-within:opacity-100"
+            }`}
+          >
+            {hasText && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                title={copied ? "Copied message!" : "Copy message"}
+                aria-label="Copy message"
+                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors cursor-pointer ${
+                  copied
+                    ? "text-ok bg-ok-soft"
+                    : "text-muted hover:text-fg hover:bg-surface-subtle"
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-ok" />
+                    <span className="text-[11px] font-medium text-ok">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="sr-only">Copy message</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {typeof actions === "function"
+              ? actions({ message, isUser, text: messageText })
+              : actions}
+          </div>
+        )}
       </div>
     </div>
   );
