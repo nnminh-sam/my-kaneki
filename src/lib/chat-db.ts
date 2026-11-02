@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { getDb, type Row } from "./db";
-import { deriveSessionTitle, type ChatSession } from "./chat-sessions";
+import { deriveSessionTitle, mergeMessages, type ChatSession } from "./chat-sessions";
 
 function parseMessages(raw: unknown): UIMessage[] {
   if (Array.isArray(raw)) return raw as UIMessage[];
@@ -124,6 +124,47 @@ export async function deleteChatSession(ownerId: string, id: string): Promise<bo
   return true;
 }
 
+/**
+ * Retrieves paginated messages for a session.
+ * Supports limit and before (message ID) for scrolling back in time.
+ */
+export async function getChatSessionMessages(
+  ownerId: string,
+  sessionId: string,
+  options?: { limit?: number; before?: string },
+): Promise<{
+  messages: UIMessage[];
+  hasMore: boolean;
+  total: number;
+}> {
+  const session = await getChatSession(ownerId, sessionId);
+  if (!session) {
+    return { messages: [], hasMore: false, total: 0 };
+  }
+
+  const allMessages = session.messages || [];
+  const total = allMessages.length;
+  const limit = Math.max(1, Math.min(options?.limit ?? 25, 100));
+
+  let endIndex = total;
+  if (options?.before) {
+    const idx = allMessages.findIndex((m) => m.id === options.before);
+    if (idx !== -1) {
+      endIndex = idx;
+    }
+  }
+
+  const startIndex = Math.max(0, endIndex - limit);
+  const sliced = allMessages.slice(startIndex, endIndex);
+  const hasMore = startIndex > 0;
+
+  return {
+    messages: sliced,
+    hasMore,
+    total,
+  };
+}
+
 /** Updates messages and auto-derives title if still using fallback title. */
 export async function updateSessionMessages(
   ownerId: string,
@@ -132,12 +173,14 @@ export async function updateSessionMessages(
   title?: string,
 ): Promise<ChatSession> {
   const existing = await getChatSession(ownerId, id);
+  const merged = existing ? mergeMessages(existing.messages, messages) : messages;
+
   let resolvedTitle = title;
   if (!resolvedTitle) {
     if (existing && existing.title && existing.title !== "New Chat") {
       resolvedTitle = existing.title;
     } else {
-      resolvedTitle = deriveSessionTitle(messages, existing?.title || "New Chat");
+      resolvedTitle = deriveSessionTitle(merged, existing?.title || "New Chat");
     }
   }
 
@@ -145,7 +188,7 @@ export async function updateSessionMessages(
   return upsertChatSession(ownerId, {
     id,
     title: resolvedTitle,
-    messages,
+    messages: merged,
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   });

@@ -58,6 +58,98 @@ export function setActiveSessionId(id: string): void {
   localStorage.setItem(ACTIVE_ID_KEY, id);
 }
 
+/** Merge existing and incoming messages safely by ID preserving order. */
+export function mergeMessages(
+  existingMessages: UIMessage[],
+  incomingMessages: UIMessage[],
+): UIMessage[] {
+  if (!existingMessages || existingMessages.length === 0) {
+    return incomingMessages || [];
+  }
+  if (!incomingMessages || incomingMessages.length === 0) {
+    return existingMessages || [];
+  }
+
+  // Find index of first incoming message in existingMessages
+  const firstIncomingId = incomingMessages[0]?.id;
+  const matchIndex = existingMessages.findIndex((m) => m.id === firstIncomingId);
+
+  if (matchIndex === -1) {
+    const existingIds = new Set(existingMessages.map((m) => m.id));
+    const isBrandNewTail = incomingMessages.every((m) => !existingIds.has(m.id));
+    if (isBrandNewTail) {
+      return [...existingMessages, ...incomingMessages];
+    }
+
+    // Build a map preserving existing order and overriding with newer versions
+    const mergedMap = new Map<string, UIMessage>();
+    for (const m of existingMessages) {
+      if (m.id) mergedMap.set(m.id, m);
+    }
+    for (const m of incomingMessages) {
+      if (m.id) mergedMap.set(m.id, m);
+    }
+    return Array.from(mergedMap.values());
+  }
+
+  const prefix = existingMessages.slice(0, matchIndex);
+  return [...prefix, ...incomingMessages];
+}
+
+/** Fetch paginated chat messages for a session */
+export async function fetchSessionMessages(
+  sessionId: string,
+  options?: { limit?: number; before?: string },
+): Promise<{
+  messages: UIMessage[];
+  hasMore: boolean;
+  total: number;
+}> {
+  const limit = options?.limit ?? 25;
+  const before = options?.before;
+
+  try {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (before) params.set("before", before);
+
+    const res = await fetch(
+      `/api/chat/sessions/${encodeURIComponent(sessionId)}/messages?${params.toString()}`,
+      { cache: "no-store" },
+    );
+
+    if (res.ok) {
+      return (await res.json()) as {
+        messages: UIMessage[];
+        hasMore: boolean;
+        total: number;
+      };
+    }
+  } catch (err) {
+    console.warn("Failed to fetch session messages from API, falling back to local storage:", err);
+  }
+
+  // Fallback to local storage
+  const localSessions = loadSavedSessions();
+  const session = localSessions.find((s) => s.id === sessionId);
+  if (!session) {
+    return { messages: [], hasMore: false, total: 0 };
+  }
+
+  const allMessages = session.messages || [];
+  const total = allMessages.length;
+  let endIndex = total;
+  if (before) {
+    const idx = allMessages.findIndex((m) => m.id === before);
+    if (idx !== -1) endIndex = idx;
+  }
+  const startIndex = Math.max(0, endIndex - limit);
+  return {
+    messages: allMessages.slice(startIndex, endIndex),
+    hasMore: startIndex > 0,
+    total,
+  };
+}
+
 /** Extracts a concise title from the first user message, or returns fallback. */
 export function deriveSessionTitle(messages: UIMessage[], fallback = "New Chat"): string {
   const firstUser = messages.find((m) => m.role === "user");

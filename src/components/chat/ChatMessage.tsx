@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import React, { memo, useState } from "react";
 import type { UIMessage } from "ai";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import type { PluggableList } from "unified";
 import { Check, ChevronDown, ChevronRight, Copy, Lightbulb } from "lucide-react";
 import { ToolCallCard } from "./ToolCallCard";
 import { normalizeLatexMath } from "@/lib/math";
@@ -22,6 +23,74 @@ export interface ChatMessageProps {
     | React.ReactNode
     | ((props: ChatMessageActionProps) => React.ReactNode);
 }
+
+const REMARK_PLUGINS: PluggableList = [remarkGfm, remarkMath];
+const REHYPE_PLUGINS: PluggableList = [[rehypeKatex, { throwOnError: false }]];
+
+const MARKDOWN_COMPONENTS: Components = {
+  h1: ({ children }) => (
+    <h1 className="mb-2 mt-4 text-lg font-bold text-fg first:mt-0">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-2 mt-4 text-base font-bold text-fg first:mt-0">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1.5 mt-3 text-sm font-semibold text-fg first:mt-0">{children}</h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="mb-1.5 mt-3 text-sm font-semibold text-fg first:mt-0">{children}</h4>
+  ),
+  strong: ({ children }) => <strong className="font-semibold text-fg">{children}</strong>,
+  hr: () => <hr className="my-4 border-t border-border" />,
+  blockquote: ({ children }) => (
+    <blockquote className="my-2.5 border-l-2 border-accent/40 pl-3 text-muted">{children}</blockquote>
+  ),
+  table: ({ children }) => (
+    <div className="my-3 w-full overflow-x-auto rounded-lg border border-border">
+      <table className="w-full border-collapse text-left text-xs">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-surface-subtle">{children}</thead>,
+  tr: ({ children }) => <tr className="border-b border-border last:border-b-0">{children}</tr>,
+  th: ({ children }) => (
+    <th className="whitespace-nowrap px-3 py-2 font-semibold text-fg">{children}</th>
+  ),
+  td: ({ children }) => <td className="px-3 py-2 align-top text-fg">{children}</td>,
+  p: ({ children }) => <p className="mb-2.5 last:mb-0 leading-relaxed">{children}</p>,
+  ul: ({ children }) => <ul className="mb-2.5 list-disc pl-5 space-y-1">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2.5 list-decimal pl-5 space-y-1">{children}</ol>,
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  code: ({ className, children, ...props }) => {
+    const isInline = !className && typeof children === "string" && !children.includes("\n");
+    if (isInline) {
+      return (
+        <code
+          className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-xs text-accent"
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <div className="my-2.5 overflow-x-auto rounded-md border border-border bg-surface-subtle p-3">
+        <code className="font-mono text-xs text-fg leading-relaxed" {...props}>
+          {children}
+        </code>
+      </div>
+    );
+  },
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="font-medium text-accent underline underline-offset-2 hover:opacity-80"
+    >
+      {children}
+    </a>
+  ),
+};
 
 function getMessageText(message: UIMessage): string {
   if (Array.isArray(message.parts)) {
@@ -43,7 +112,7 @@ function getMessageText(message: UIMessage): string {
   return "";
 }
 
-export function ChatMessage({ message, actions }: ChatMessageProps) {
+function ChatMessageComponent({ message, actions }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [showReasoning, setShowReasoning] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -107,64 +176,9 @@ export function ChatMessage({ message, actions }: ChatMessageProps) {
               return (
                 <div key={index} className="prose prose-neutral dark:prose-invert max-w-none text-sm leading-relaxed">
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
-                    components={{
-                      h1: ({ children }) => <h1 className="mb-2 mt-4 text-lg font-bold text-fg first:mt-0">{children}</h1>,
-                      h2: ({ children }) => <h2 className="mb-2 mt-4 text-base font-bold text-fg first:mt-0">{children}</h2>,
-                      h3: ({ children }) => <h3 className="mb-1.5 mt-3 text-sm font-semibold text-fg first:mt-0">{children}</h3>,
-                      h4: ({ children }) => <h4 className="mb-1.5 mt-3 text-sm font-semibold text-fg first:mt-0">{children}</h4>,
-                      strong: ({ children }) => <strong className="font-semibold text-fg">{children}</strong>,
-                      hr: () => <hr className="my-4 border-t border-border" />,
-                      blockquote: ({ children }) => (
-                        <blockquote className="my-2.5 border-l-2 border-accent/40 pl-3 text-muted">{children}</blockquote>
-                      ),
-                      table: ({ children }) => (
-                        <div className="my-3 w-full overflow-x-auto rounded-lg border border-border">
-                          <table className="w-full border-collapse text-left text-xs">{children}</table>
-                        </div>
-                      ),
-                      thead: ({ children }) => <thead className="bg-surface-subtle">{children}</thead>,
-                      tr: ({ children }) => <tr className="border-b border-border last:border-b-0">{children}</tr>,
-                      th: ({ children }) => (
-                        <th className="whitespace-nowrap px-3 py-2 font-semibold text-fg">{children}</th>
-                      ),
-                      td: ({ children }) => <td className="px-3 py-2 align-top text-fg">{children}</td>,
-                      p: ({ children }) => <p className="mb-2.5 last:mb-0 leading-relaxed">{children}</p>,
-                      ul: ({ children }) => <ul className="mb-2.5 list-disc pl-5 space-y-1">{children}</ul>,
-                      ol: ({ children }) => <ol className="mb-2.5 list-decimal pl-5 space-y-1">{children}</ol>,
-                      li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                      code: ({ className, children, ...props }) => {
-                        const isInline = !className && typeof children === "string" && !children.includes("\n");
-                        if (isInline) {
-                          return (
-                            <code
-                              className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-xs text-accent"
-                              {...props}
-                            >
-                              {children}
-                            </code>
-                          );
-                        }
-                        return (
-                          <div className="my-2.5 overflow-x-auto rounded-md border border-border bg-surface-subtle p-3">
-                            <code className="font-mono text-xs text-fg leading-relaxed" {...props}>
-                              {children}
-                            </code>
-                          </div>
-                        );
-                      },
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="font-medium text-accent underline underline-offset-2 hover:opacity-80"
-                        >
-                          {children}
-                        </a>
-                      ),
-                    }}
+                    remarkPlugins={REMARK_PLUGINS}
+                    rehypePlugins={REHYPE_PLUGINS}
+                    components={MARKDOWN_COMPONENTS}
                   >
                     {normalizeLatexMath(part.text)}
                   </ReactMarkdown>
@@ -271,3 +285,46 @@ export function ChatMessage({ message, actions }: ChatMessageProps) {
     </div>
   );
 }
+
+function areMessagePropsEqual(
+  prevProps: ChatMessageProps,
+  nextProps: ChatMessageProps,
+): boolean {
+  if (prevProps.actions !== nextProps.actions) return false;
+  if (prevProps.message === nextProps.message) return true;
+  if (prevProps.message.id !== nextProps.message.id) return false;
+  if (prevProps.message.role !== nextProps.message.role) return false;
+
+  const prevParts = prevProps.message.parts;
+  const nextParts = nextProps.message.parts;
+
+  if (prevParts === nextParts) return true;
+  if (!prevParts || !nextParts) return false;
+  if (prevParts.length !== nextParts.length) return false;
+
+  for (let i = 0; i < prevParts.length; i++) {
+    const p1 = prevParts[i];
+    const p2 = nextParts[i];
+    if (p1 === p2) continue;
+    if (p1.type !== p2.type) return false;
+
+    if (p1.type === "text") {
+      if ((p1 as { text: string }).text !== (p2 as { text: string }).text) {
+        return false;
+      }
+    } else if (p1.type === "reasoning") {
+      if ((p1 as { text: string }).text !== (p2 as { text: string }).text) {
+        return false;
+      }
+    } else {
+      if (JSON.stringify(p1) !== JSON.stringify(p2)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+export const ChatMessage = memo(ChatMessageComponent, areMessagePropsEqual);
+

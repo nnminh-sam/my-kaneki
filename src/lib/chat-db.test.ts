@@ -7,11 +7,13 @@ import { migrate } from "./migrate";
 import {
   deleteChatSession,
   getChatSession,
+  getChatSessionMessages,
   listChatSessions,
   renameChatSession,
   updateSessionMessages,
   upsertChatSession,
 } from "./chat-db";
+import { mergeMessages } from "./chat-sessions";
 
 describe("Chat sessions database persistence (PGlite)", () => {
   it("migrates schema and persists chat sessions per owner", async () => {
@@ -134,5 +136,90 @@ describe("Chat sessions database persistence (PGlite)", () => {
     assert.equal(afterDelete.length, 1);
     assert.equal(afterDelete[0].id, "session_test_2");
     assert.equal(afterDelete[0].title, "Custom Renamed Title");
+  });
+
+  it("paginates messages and preserves older history during partial updates", async () => {
+    const pg = new PGlite();
+    setDbForTests({
+      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
+      transaction: async (statements) => {
+        const out: Record<string, unknown>[][] = [];
+        for (const s of statements) {
+          out.push((await pg.query(s.text, s.params)).rows as Record<string, unknown>[]);
+        }
+        return out;
+      },
+    });
+
+    await migrate({
+      exec: async (sql) => {
+        await pg.exec(sql);
+      },
+      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
+    });
+
+    const owner = "U-PAGE";
+    const totalCount = 60;
+    const allMessages: UIMessage[] = Array.from({ length: totalCount }, (_, i) => ({
+      id: `msg-${i}`,
+      role: i % 2 === 0 ? "user" : "assistant",
+      parts: [{ type: "text", text: `Message content ${i}` }],
+    }));
+
+    await upsertChatSession(owner, {
+      id: "session_paginated",
+      title: "Long Conversation",
+      messages: allMessages,
+    });
+
+    // Page 1: latest 25 messages (msg-35 to msg-59)
+    const page1 = await getChatSessionMessages(owner, "session_paginated", { limit: 25 });
+    assert.equal(page1.total, 60);
+    assert.equal(page1.messages.length, 25);
+    assert.equal(page1.hasMore, true);
+    assert.equal(page1.messages[0].id, "msg-35");
+    assert.equal(page1.messages[24].id, "msg-59");
+
+    // Page 2: 25 messages before msg-35 (msg-10 to msg-34)
+    const page2 = await getChatSessionMessages(owner, "session_paginated", {
+      limit: 25,
+      before: page1.messages[0].id,
+    });
+    assert.equal(page2.messages.length, 25);
+    assert.equal(page2.hasMore, true);
+    assert.equal(page2.messages[0].id, "msg-10");
+    assert.equal(page2.messages[24].id, "msg-34");
+
+    // Page 3: remaining messages before msg-10 (msg-0 to msg-9)
+    const page3 = await getChatSessionMessages(owner, "session_paginated", {
+      limit: 25,
+      before: page2.messages[0].id,
+    });
+    assert.equal(page3.messages.length, 10);
+    assert.equal(page3.hasMore, false);
+    assert.equal(page3.messages[0].id, "msg-0");
+    assert.equal(page3.messages[9].id, "msg-9");
+
+    // Test mergeMessages helper
+    const loadedSlice = page1.messages; // msg-35 to msg-59
+    const appendedSlice: UIMessage[] = [
+      ...loadedSlice,
+      {
+        id: "msg-60",
+        role: "user",
+        parts: [{ type: "text", text: "New prompt after scrolling" }],
+      },
+    ];
+
+    const merged = mergeMessages(allMessages, appendedSlice);
+    assert.equal(merged.length, 61);
+    assert.equal(merged[0].id, "msg-0"); // Older messages preserved
+    assert.equal(merged[60].id, "msg-60"); // New message added
+
+    // Test updateSessionMessages with partial tail preserves the whole conversation in DB
+    const updated = await updateSessionMessages(owner, "session_paginated", appendedSlice);
+    assert.equal(updated.messages.length, 61);
+    assert.equal(updated.messages[0].id, "msg-0");
+    assert.equal(updated.messages[60].id, "msg-60");
   });
 });

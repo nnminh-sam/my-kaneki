@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -13,16 +13,15 @@ import {
   FileText,
   Loader2,
   Pencil,
-  Send,
   ShieldCheck,
   Sparkles,
-  Square,
   X,
 } from "lucide-react";
 import type { ChatSession } from "@/lib/chat-sessions";
+import { fetchSessionMessages } from "@/lib/chat-sessions";
 import { ActionModal } from "@/components/ActionModal";
-import { ModelSwitcher } from "@/components/ai/ModelSwitcher";
 import { ChatMessage, type ChatMessageActionProps } from "./ChatMessage";
+import { AgentChatInput } from "./AgentChatInput";
 
 export type { ChatMessageActionProps };
 
@@ -66,7 +65,8 @@ export function AgentChat({
   placeholder = "Ask a question, update notes, or manage tasks...",
   renderMessageActions,
 }: AgentChatProps) {
-  const [input, setInput] = useState("");
+  const PAGE_SIZE = 25;
+
   const [activeModel, setActiveModel] = useState<{
     provider: string;
     model: string;
@@ -76,13 +76,50 @@ export function AgentChat({
   const [copiedId, setCopiedId] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+
+  // Pagination state: start with the latest PAGE_SIZE messages
+  const initialMessages = useMemo(() => {
+    const all = session.messages || [];
+    if (all.length <= PAGE_SIZE) return all;
+    return all.slice(all.length - PAGE_SIZE);
+  }, [session.messages]);
+
+  const [hasMore, setHasMore] = useState(session.messages.length > PAGE_SIZE);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 
   useEffect(() => {
     setTitleInput(session.title || "New Chat");
     setIsEditingTitle(false);
     setCopiedId(false);
   }, [session.id, session.title]);
+
+  // Check if there are older messages available on backend
+  useEffect(() => {
+    let isMounted = true;
+    const hasLocalMore = session.messages.length > PAGE_SIZE;
+    if (hasLocalMore) {
+      setHasMore(true);
+      return;
+    }
+
+    const oldestId = session.messages[0]?.id;
+    if (oldestId) {
+      void fetchSessionMessages(session.id, { limit: 1, before: oldestId }).then(
+        (res) => {
+          if (isMounted) {
+            setHasMore(res.hasMore || res.messages.length > 0);
+          }
+        },
+      );
+    } else {
+      setHasMore(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session.id, session.messages]);
 
   const handleCopySessionId = async () => {
     try {
@@ -114,20 +151,26 @@ export function AgentChat({
     setIsEditingTitle(false);
   };
 
-  const latestMessagesRef = useRef<UIMessage[]>(session.messages);
+  const latestMessagesRef = useRef<UIMessage[]>(initialMessages);
   const onUpdateRef = useRef(onUpdateSessionMessages);
 
   useEffect(() => {
     onUpdateRef.current = onUpdateSessionMessages;
   }, [onUpdateSessionMessages]);
 
-  const { messages, sendMessage, status, stop, error } = useChat({
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: { sessionId: session.id, ...(systemPreamble ? { systemPreamble } : {}) },
+      }),
+    [session.id, systemPreamble],
+  );
+
+  const { messages, sendMessage, status, stop, error, setMessages } = useChat({
     id: session.id,
-    messages: session.messages,
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      body: { sessionId: session.id, ...(systemPreamble ? { systemPreamble } : {}) },
-    }),
+    messages: initialMessages,
+    transport,
     onFinish: ({ messages: updatedMessages }) => {
       latestMessagesRef.current = updatedMessages;
       onUpdateRef.current(session.id, updatedMessages);
@@ -148,16 +191,125 @@ export function AgentChat({
     latestMessagesRef.current = messages;
   }, [messages]);
 
+  // Load older messages lazily when requested or scrolling to top
+  const loadOlderMessages = useCallback(async () => {
+    if (isLoadingOlder || !hasMore) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    setIsLoadingOlder(true);
+    const oldScrollHeight = container.scrollHeight;
+    const oldScrollTop = container.scrollTop;
+
+    try {
+      const oldestMessageId = latestMessagesRef.current[0]?.id;
+      if (!oldestMessageId) {
+        setHasMore(false);
+        return;
+      }
+
+      const res = await fetchSessionMessages(session.id, {
+        limit: PAGE_SIZE,
+        before: oldestMessageId,
+      });
+
+      if (res.messages.length > 0) {
+        setMessages((current) => {
+          const existingIds = new Set(current.map((m) => m.id));
+          const newOlder = res.messages.filter((m) => !existingIds.has(m.id));
+          if (newOlder.length === 0) return current;
+          return [...newOlder, ...current];
+        });
+
+        setHasMore(res.hasMore);
+
+        // Adjust scroll position after prepended elements render to prevent jumps
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            const newScrollHeight = messagesContainerRef.current.scrollHeight;
+            const diff = newScrollHeight - oldScrollHeight;
+            messagesContainerRef.current.scrollTop = oldScrollTop + diff;
+          }
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to load older messages:", err);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [hasMore, isLoadingOlder, session.id, setMessages]);
+
+  // IntersectionObserver for lazy loading older messages when top sentinel is visible
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    const container = messagesContainerRef.current;
+    if (!sentinel || !container || !hasMore || isLoadingOlder) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadOlderMessages();
+        }
+      },
+      {
+        root: container,
+        rootMargin: "150px 0px 0px 0px",
+        threshold: 0,
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingOlder, loadOlderMessages]);
+
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container || isLoadingOlder || !hasMore) return;
+    if (container.scrollTop < 120) {
+      void loadOlderMessages();
+    }
+  }, [hasMore, isLoadingOlder, loadOlderMessages]);
+
+  const prevFirstMessageIdRef = useRef<string | null>(null);
+  const prevLastMessageIdRef = useRef<string | null>(null);
+
   // Auto-scroll messages container internally without scrolling page or parent layout
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const currentFirstId = messages[0]?.id ?? null;
+    const currentLastId = messages[messages.length - 1]?.id ?? null;
+
+    // Detect if older messages were prepended to the top
+    const wasPrepended =
+      prevFirstMessageIdRef.current !== null &&
+      currentFirstId !== prevFirstMessageIdRef.current &&
+      prevLastMessageIdRef.current === currentLastId;
+
+    prevFirstMessageIdRef.current = currentFirstId;
+    const prevLastId = prevLastMessageIdRef.current;
+    prevLastMessageIdRef.current = currentLastId;
+
+    if (wasPrepended) {
+      // Do not auto-scroll down when older messages are loaded into the top
+      return;
     }
-  }, [messages, status]);
+
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+
+    if (isGenerating || isNearBottom || prevLastId !== currentLastId) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, isGenerating]);
 
   // Ensure window and parent containers stay at top 0 on initial session load
   useEffect(() => {
+    prevFirstMessageIdRef.current = null;
+    prevLastMessageIdRef.current = null;
     if (typeof window !== "undefined") {
       window.scrollTo(0, 0);
     }
@@ -180,48 +332,45 @@ export function AgentChat({
     };
   }, [session.id]);
 
-  const handleSend = async (textToSend?: string) => {
-    const text = (textToSend ?? input).trim();
-    if (!text || isGenerating) return;
+  const activeModelRef = useRef(activeModel);
+  useEffect(() => {
+    activeModelRef.current = activeModel;
+  }, [activeModel]);
 
-    setInput("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+  const handleSend = useCallback(
+    async (textToSend: string) => {
+      const text = textToSend.trim();
+      if (!text || isGenerating) return;
 
-    try {
-      await sendMessage(
-        { text },
-        {
-          body: {
-            sessionId: session.id,
-            ...(systemPreamble ? { systemPreamble } : {}),
-            ...(activeModel
-              ? {
-                  provider: activeModel.provider,
-                  model: activeModel.model,
-                }
-              : {}),
+      try {
+        await sendMessage(
+          { text },
+          {
+            body: {
+              sessionId: session.id,
+              ...(systemPreamble ? { systemPreamble } : {}),
+              ...(activeModelRef.current
+                ? {
+                    provider: activeModelRef.current.provider,
+                    model: activeModelRef.current.model,
+                  }
+                : {}),
+            },
           },
-        },
-      );
-    } catch (err) {
-      console.error("Failed to send message:", err);
-    }
-  };
+        );
+      } catch (err) {
+        console.error("Failed to send message:", err);
+      }
+    },
+    [isGenerating, sendMessage, session.id, systemPreamble],
+  );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
+  const handleStop = useCallback(() => {
+    stop();
+    if (latestMessagesRef.current.length > 0) {
+      onUpdateRef.current(session.id, latestMessagesRef.current);
     }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-  };
+  }, [session.id, stop]);
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-bg">
@@ -326,6 +475,7 @@ export function AgentChat({
       {/* Messages Stream Area */}
       <div
         ref={messagesContainerRef}
+        onScroll={handleScroll}
         className="flex-1 min-h-0 overflow-y-auto pt-12 md:pt-0"
       >
         {messages.length === 0 ? (
@@ -364,6 +514,32 @@ export function AgentChat({
           </div>
         ) : (
           <div className="flex flex-col py-4">
+            {/* Top Pagination Sentinel & Controls */}
+            <div ref={topSentinelRef} className="w-full px-4">
+              {isLoadingOlder && (
+                <div className="flex items-center justify-center py-2 text-xs text-muted">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-accent mr-2" />
+                  <span>Loading older messages...</span>
+                </div>
+              )}
+              {!isLoadingOlder && hasMore && (
+                <div className="flex justify-center py-1">
+                  <button
+                    type="button"
+                    onClick={() => void loadOlderMessages()}
+                    className="rounded-md border border-border bg-surface-subtle px-3 py-1 text-xs text-muted transition-colors hover:border-accent/40 hover:text-fg cursor-pointer"
+                  >
+                    Load older messages
+                  </button>
+                </div>
+              )}
+              {!hasMore && messages.length >= PAGE_SIZE && (
+                <div className="py-2 text-center text-[11px] text-muted/60">
+                  Beginning of conversation
+                </div>
+              )}
+            </div>
+
             {messages.map((m, idx) => (
               <ChatMessage
                 key={m.id || `msg-${idx}`}
@@ -397,69 +573,14 @@ export function AgentChat({
       />
 
       {/* Bottom Input Box */}
-      <div className="shrink-0 border-t border-border bg-surface p-4">
-        <div className="mx-auto max-w-3xl">
-          <div className="relative flex items-end rounded-xl border border-border bg-bg p-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-all">
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-fg placeholder:text-muted focus:outline-hidden leading-relaxed"
-            />
-
-            <div className="ml-2 flex items-center gap-1">
-              {isGenerating ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    stop();
-                    if (latestMessagesRef.current.length > 0) {
-                      onUpdateRef.current(
-                        session.id,
-                        latestMessagesRef.current,
-                      );
-                    }
-                  }}
-                  title="Stop generating"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-danger text-white transition-opacity hover:opacity-90 active:scale-95 cursor-pointer"
-                >
-                  <Square className="h-3.5 w-3.5 fill-current" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleSend()}
-                  disabled={!input.trim()}
-                  title="Send message (Enter)"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 cursor-pointer"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted">
-            <span className="truncate">Press Enter to send, Shift+Enter for new line</span>
-            <div className="flex items-center gap-2 shrink-0">
-              <ModelSwitcher
-                mode="chat"
-                compact
-                direction="up"
-                onChange={(sel) => setActiveModel(sel)}
-              />
-              {!headerBadge && (
-                <span className="hidden sm:inline">
-                  Actions logged to audit_log
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <AgentChatInput
+        onSend={handleSend}
+        onStop={handleStop}
+        isGenerating={isGenerating}
+        placeholder={placeholder}
+        headerBadge={headerBadge}
+        onModelChange={setActiveModel}
+      />
     </div>
   );
 }

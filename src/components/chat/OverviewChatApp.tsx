@@ -11,6 +11,7 @@ import {
   fetchChatSessionsFromApi,
   getActiveSessionId,
   loadSavedSessions,
+  mergeMessages,
   renameChatSessionToApi,
   saveChatSessionToApi,
   saveSessionsToStorage,
@@ -153,13 +154,14 @@ export function OverviewChatApp({ initialSessions }: OverviewChatAppProps) {
         return prev;
       }
 
+      const mergedMessages = mergeMessages(existing.messages, newMessages);
       const currentTitle =
-        existing.title === "New Chat" ? deriveSessionTitle(newMessages, existing.title) : existing.title;
+        existing.title === "New Chat" ? deriveSessionTitle(mergedMessages, existing.title) : existing.title;
       const now = new Date().toISOString();
       const updatedSession: ChatSession = {
         ...existing,
         title: currentTitle,
-        messages: newMessages,
+        messages: mergedMessages,
         updatedAt: now,
       };
 
@@ -170,7 +172,7 @@ export function OverviewChatApp({ initialSessions }: OverviewChatAppProps) {
       void saveChatSessionToApi({
         id: sessionId,
         title: currentTitle,
-        messages: newMessages,
+        messages: mergedMessages,
         updatedAt: now,
       });
 

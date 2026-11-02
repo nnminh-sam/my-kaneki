@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -23,7 +23,7 @@ interface ToolCallCardProps {
   errorText?: string;
 }
 
-export function ToolCallCard({
+function ToolCallCardComponent({
   toolName,
   state = "call",
   input = {},
@@ -180,3 +180,5 @@ export function ToolCallCard({
     </div>
   );
 }
+
+export const ToolCallCard = memo(ToolCallCardComponent);
