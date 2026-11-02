@@ -7,7 +7,7 @@ import type {
   QuizSubmission,
   SpacedRepetitionRow,
 } from "./types";
-import { quizPromptPayloadSchema } from "./types";
+import { quizPromptPayloadSchema, normalizeQuizPromptPayload } from "./types";
 import {
   getSubjectBySlug,
   getQuizById,
@@ -58,8 +58,11 @@ export async function generateQuiz(
     throw new LMSValidationError(`Subject "${subjectSlug}" not found for owner.`);
   }
 
-  // 1. Zod payload validation
-  quizPromptPayloadSchema.parse(params.promptPayload);
+  // 1. Zod payload validation & graceful normalization
+  const promptPayload = normalizeQuizPromptPayload(
+    params.quizType,
+    params.promptPayload as Record<string, unknown>,
+  );
 
   // 2. Mastery gate preconditions
   if (params.quizPurpose === "mastery_gate") {
@@ -77,12 +80,6 @@ export async function generateQuiz(
         `Cannot create mastery gate quiz for locked node "${node.id}". Complete prerequisites first.`,
       );
     }
-
-    if (!node.github_md_path || !node.github_md_path.trim()) {
-      throw new LMSValidationError(
-        `Cannot create mastery gate quiz before node material is published (missing github_md_path).`,
-      );
-    }
   }
 
   return await createQuiz(ownerId, subject.id, {
@@ -91,7 +88,7 @@ export async function generateQuiz(
     quizPurpose: params.quizPurpose,
     quizType: params.quizType,
     difficultyLevel: params.difficultyLevel,
-    promptPayload: params.promptPayload,
+    promptPayload,
   });
 }
 
@@ -142,9 +139,6 @@ export async function submitQuizAttempt(
     }
     if (node.status === "locked") {
       throw new LMSValidationError(`Cannot attempt mastery gate for locked node "${node.id}".`);
-    }
-    if (!node.github_md_path || !node.github_md_path.trim()) {
-      throw new LMSValidationError(`Cannot attempt mastery gate before node material is published.`);
     }
   }
 

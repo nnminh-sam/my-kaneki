@@ -3,6 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import {
   AlertCircle,
   ArrowRight,
@@ -15,18 +19,86 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
-import type {
-  QuizRow,
-  QuizPromptPayload,
-  QuizSubmission,
-  NodeRow,
-  SubjectRow,
-  McqPromptPayload,
-  OpenEndedPromptPayload,
-  CodeChallengePromptPayload,
-  ProjectTaskPromptPayload,
+import {
+  type QuizRow,
+  type QuizPromptPayload,
+  type QuizSubmission,
+  type NodeRow,
+  type SubjectRow,
+  type McqPromptPayload,
+  type OpenEndedPromptPayload,
+  type CodeChallengePromptPayload,
+  type ProjectTaskPromptPayload,
+  formatPromptToMarkdown,
 } from "@/lib/lms/types";
 import { submitQuizAction, type SubmitQuizActionResult } from "@/actions/lms";
+import { normalizeLatexMath } from "@/lib/math";
+
+const REMARK_PLUGINS = [remarkGfm, remarkMath];
+const REHYPE_PLUGINS: any[] = [[rehypeKatex, { throwOnError: false }]];
+
+const PROMPT_MARKDOWN_COMPONENTS: Components = {
+  h1: ({ children }) => (
+    <h2 className="mb-2.5 mt-4 text-base font-bold text-fg first:mt-0">
+      {children}
+    </h2>
+  ),
+  h2: ({ children }) => (
+    <h3 className="mb-2 mt-3 text-sm font-semibold text-fg first:mt-0">
+      {children}
+    </h3>
+  ),
+  h3: ({ children }) => (
+    <div className="mb-2.5 mt-4 flex items-center gap-2 border-b border-border/40 pb-1.5 text-sm font-semibold text-fg first:mt-0">
+      <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+      <span>{children}</span>
+    </div>
+  ),
+  h4: ({ children }) => (
+    <h4 className="mb-1.5 mt-3 text-xs font-semibold text-accent first:mt-0">
+      {children}
+    </h4>
+  ),
+  p: ({ children }) => (
+    <p className="mb-3 leading-relaxed text-sm text-fg/90 last:mb-0">
+      {children}
+    </p>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-fg">{children}</strong>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-3 list-disc pl-5 space-y-1 text-sm text-fg/90">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-3 list-decimal pl-5 space-y-1 text-sm text-fg/90">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  code: ({ className, children, ...props }) => {
+    const isInline = !className && typeof children === "string" && !children.includes("\n");
+    if (isInline) {
+      return (
+        <code
+          className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-xs text-accent"
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <div className="my-2.5 overflow-x-auto rounded-md border border-border bg-surface-subtle p-3">
+        <code className="font-mono text-xs text-fg leading-relaxed" {...props}>
+          {children}
+        </code>
+      </div>
+    );
+  },
+};
 
 interface QuizRunnerProps {
   quiz: QuizRow;
@@ -175,7 +247,7 @@ export function QuizRunner({
   };
 
   // Header prompt text derived from discriminated union
-  const promptQuestion =
+  const rawPromptQuestion =
     payload.type === "mcq_4"
       ? payload.question
       : payload.type === "open_ended"
@@ -183,6 +255,10 @@ export function QuizRunner({
       : payload.type === "code_challenge"
       ? payload.instruction
       : payload.specification;
+
+  const promptQuestion = formatPromptToMarkdown(
+    rawPromptQuestion || "Answer the prompt to proceed.",
+  );
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -226,9 +302,15 @@ export function QuizRunner({
 
         {/* Prompt Question */}
         <div className="py-5">
-          <p className="text-sm font-semibold leading-relaxed text-fg">
-            {promptQuestion || "Answer the prompt to proceed."}
-          </p>
+          <div className="text-sm leading-relaxed text-fg">
+            <ReactMarkdown
+              remarkPlugins={REMARK_PLUGINS}
+              rehypePlugins={REHYPE_PLUGINS}
+              components={PROMPT_MARKDOWN_COMPONENTS}
+            >
+              {normalizeLatexMath(promptQuestion)}
+            </ReactMarkdown>
+          </div>
 
           {/* Constraints (for code challenges) */}
           {payload.type === "code_challenge" &&
@@ -447,8 +529,14 @@ export function QuizRunner({
               </div>
 
               {result.feedback && (
-                <div className="mt-2.5 leading-relaxed text-muted whitespace-pre-wrap">
-                  {result.feedback}
+                <div className="mt-2.5 text-xs leading-relaxed text-muted">
+                  <ReactMarkdown
+                    remarkPlugins={REMARK_PLUGINS}
+                    rehypePlugins={REHYPE_PLUGINS}
+                    components={PROMPT_MARKDOWN_COMPONENTS}
+                  >
+                    {normalizeLatexMath(result.feedback)}
+                  </ReactMarkdown>
                 </div>
               )}
 

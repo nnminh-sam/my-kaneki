@@ -25,7 +25,13 @@ function formatProviderError(err: unknown): string {
       if (msg) return String(msg);
     } catch {}
   }
-  return err instanceof Error ? err.message : "Agent error";
+  if (err instanceof Error) {
+    if ((err as any).cause instanceof Error) {
+      return `${err.message}: ${(err as any).cause.message}`;
+    }
+    return err.message;
+  }
+  return "Agent error";
 }
 
 function extractLastUserPrompt(messages: UIMessage[]): string {

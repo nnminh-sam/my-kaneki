@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { NodeRow, NodeEdgeRow, QuizSubmission, QuizPromptPayload } from "./types";
-import { quizSubmissionSchema, quizPromptPayloadSchema } from "./types";
+import { quizSubmissionSchema, quizPromptPayloadSchema, normalizeQuizPromptPayload } from "./types";
 
 describe("LMS Phase 5: Learner UI Logic & Contracts", () => {
   it("groups nodes by difficulty level and orders them by ordinal", () => {
@@ -185,5 +185,71 @@ describe("LMS Phase 5: Learner UI Logic & Contracts", () => {
         .map((v) => `${v.file}:${v.line}: ${v.text}`)
         .join("\n")}`,
     );
+  });
+
+  it("normalizes agent raw promptPayload into valid polymorphic quiz schemas", () => {
+    // 1. Unstructured scenarios without type or rubricCriteria (the exact bug from conversation)
+    const rawOpenEnded = {
+      scenario1: "Designing a Recently Viewed list for a browser with fast back/forward.",
+      scenario2: "A system processing tasks FCFS with zero latency spikes.",
+      scenario3: "Reversing a string using a data structure.",
+    };
+
+    const normalizedOpenEnded = normalizeQuizPromptPayload("open_ended", rawOpenEnded);
+    assert.equal(normalizedOpenEnded.type, "open_ended");
+    assert.ok(normalizedOpenEnded.prompt.includes("Scenario 1"));
+    assert.ok(normalizedOpenEnded.prompt.includes("Scenario 2"));
+    assert.ok(normalizedOpenEnded.prompt.includes("Scenario 3"));
+    assert.ok(normalizedOpenEnded.rubricCriteria.length >= 1);
+
+    // 1b. Array of scenario objects with { context, question }
+    const rawArrayScenarios = {
+      scenarios: [
+        {
+          context: "You are building an Undo system.",
+          question: "Which data structure would you use?",
+        },
+        {
+          context: "A print server receives documents.",
+          question: "Which queue implementation is optimal?",
+        },
+      ],
+    };
+    const normalizedArrayScenarios = normalizeQuizPromptPayload("open_ended", rawArrayScenarios);
+    assert.equal(normalizedArrayScenarios.type, "open_ended");
+    assert.ok(normalizedArrayScenarios.prompt.includes("### Scenario 1"));
+    assert.ok(normalizedArrayScenarios.prompt.includes("**Context**: You are building an Undo system."));
+    assert.ok(normalizedArrayScenarios.prompt.includes("**Question**: Which data structure would you use?"));
+    assert.ok(normalizedArrayScenarios.prompt.includes("### Scenario 2"));
+
+    // 1c. Serialized JSON scenarios string in prompt
+    const rawJsonPrompt = {
+      prompt: `scenarios: [{"context":"Memory is constrained.","question":"Which data structure?"}]`,
+    };
+    const normalizedJsonPrompt = normalizeQuizPromptPayload("open_ended", rawJsonPrompt);
+    assert.equal(normalizedJsonPrompt.type, "open_ended");
+    assert.ok(normalizedJsonPrompt.prompt.includes("### Scenario 1"));
+    assert.ok(normalizedJsonPrompt.prompt.includes("**Context**: Memory is constrained."));
+    assert.ok(normalizedJsonPrompt.prompt.includes("**Question**: Which data structure?"));
+
+    // 2. MCQ with dictionary options instead of array of tuples
+    const rawMcq = {
+      prompt: "Which data structure provides O(1) random access?",
+      options: {
+        A: "Array",
+        B: "Linked List",
+        C: "Binary Search Tree",
+        D: "Queue",
+      },
+      correctOption: "A",
+    };
+
+    const normalizedMcq = normalizeQuizPromptPayload("mcq_4", rawMcq);
+    assert.equal(normalizedMcq.type, "mcq_4");
+    assert.equal(normalizedMcq.question, "Which data structure provides O(1) random access?");
+    assert.equal(normalizedMcq.options.length, 4);
+    assert.equal(normalizedMcq.options[0].label, "A");
+    assert.equal(normalizedMcq.options[0].text, "Array");
+    assert.equal(normalizedMcq.correctOption, "A");
   });
 });

@@ -762,7 +762,7 @@ export function createLmsMcpServer(ownerId: string): McpServer {
       quizPurpose: z.enum(["placement", "mastery_gate", "spaced_repetition"]),
       quizType: z.enum(["mcq_4", "open_ended", "code_challenge", "project_task"]),
       difficultyLevel: z.number().int().positive(),
-      promptPayload: quizPromptPayloadSchema,
+      promptPayload: z.record(z.string(), z.unknown()),
     },
     async (args) => {
       try {
@@ -772,7 +772,7 @@ export function createLmsMcpServer(ownerId: string): McpServer {
           quizPurpose: args.quizPurpose,
           quizType: args.quizType,
           difficultyLevel: args.difficultyLevel,
-          promptPayload: args.promptPayload,
+          promptPayload: args.promptPayload as any,
         });
 
         // Strip answer key from echoed response so it never leaks

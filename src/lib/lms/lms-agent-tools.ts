@@ -343,14 +343,14 @@ export function createLmsAgentTools(ownerId: string) {
 
     lmsGenerateQuiz: tool({
       description:
-        "Generate a polymorphic quiz (mcq_4, open_ended, code_challenge, project_task) for a module mastery gate or spaced repetition review. Never reveal answer keys before user submission.",
+        "Generate a polymorphic quiz (mcq_4, open_ended, code_challenge, project_task) for a module mastery gate or spaced repetition review. promptPayload should contain the question details (e.g. prompt and rubricCriteria for open_ended; question, options, correctOption for mcq_4). Never reveal answer keys before user submission.",
       inputSchema: z.object({
         subjectSlug: z.string().min(1),
         nodeId: z.string().optional(),
         quizPurpose: z.enum(["mastery_gate", "spaced_repetition", "placement"]),
         quizType: z.enum(["mcq_4", "open_ended", "code_challenge", "project_task"]),
         difficultyLevel: z.number().int().positive(),
-        promptPayload: quizPromptPayloadSchema,
+        promptPayload: z.record(z.string(), z.unknown()),
       }),
       execute: async (args): Promise<ToolResult<{ quizId: string }>> => {
         try {
@@ -359,7 +359,7 @@ export function createLmsAgentTools(ownerId: string) {
             quizPurpose: args.quizPurpose,
             quizType: args.quizType,
             difficultyLevel: args.difficultyLevel,
-            promptPayload: args.promptPayload,
+            promptPayload: args.promptPayload as any,
           });
           return { success: true, quizId: quiz.id };
         } catch (err) {
