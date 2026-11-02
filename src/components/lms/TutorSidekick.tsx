@@ -39,13 +39,14 @@ export function TutorSidekick({
   };
 
   const systemPreamble = `You are a dedicated Socratic Tutor assisting a learner in Kaneki LMS.
-Current Subject: "${subject.title}" (scale: 1..${subject.difficulty_scale_n})
-Current Module: "${node.title}" (Tier ${node.difficulty_level}, summary: "${node.summary || "N/A"}")
+Current Subject: "${subject.title}" (slug: "${subject.slug}", scale: 1..${subject.difficulty_scale_n})
+Current Module: "${node.title}" (id: "${node.id}", Tier ${node.difficulty_level}, summary: "${node.summary || "N/A"}")
 
 Pedagogical guidelines:
 1. Guide the learner with Socratic inquiry and clear technical analogies.
 2. Ground your answers in the subject's curriculum and verified RAG sources.
-3. Be concise and encourage deep conceptual understanding.`;
+3. Be concise and encourage deep conceptual understanding.
+4. When the learner demonstrates mastery, asks to mark a node completed/done, or concludes the module, call lmsUpdateNodeStatus with nodeId "${node.id}", subjectSlug "${subject.slug}", and status "completed". Never claim a node was marked done without calling the tool.`;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xs">

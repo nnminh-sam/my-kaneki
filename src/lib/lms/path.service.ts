@@ -3,6 +3,7 @@ import type {
   NodeRow,
   NodeEdgeRow,
   CapstoneProject,
+  NodeStatus,
 } from "./types";
 import {
   getSubjectBySlug,
@@ -11,6 +12,10 @@ import {
   listNodes,
   listNodeEdges,
   updateNodesStatus,
+  getNodeById,
+  updateNodeStatus,
+  upsertSpacedRepetition,
+  getSpacedRepetition,
 } from "./repo";
 import { validatePath, unlockedNodes, type GraphEdge } from "./dag";
 import { searchRag, type RagSearchResult } from "./rag";
@@ -286,3 +291,158 @@ export async function getNextNodes(
 
   return results;
 }
+
+export interface UpdateLearningNodeStatusParams {
+  subjectSlug?: string;
+  nodeId?: string;
+  nodeTitle?: string;
+  status: NodeStatus;
+}
+
+export interface UpdateLearningNodeStatusResult {
+  node: NodeRow;
+  newlyUnlockedNodeIds: string[];
+}
+
+/**
+ * Updates the learning status of a node (e.g. marking it completed or in_progress).
+ * Automatically unlocks downstream dependent nodes when completed and schedules spaced repetition review.
+ */
+export async function updateLearningNodeStatus(
+  ownerId: string,
+  params: UpdateLearningNodeStatusParams,
+): Promise<UpdateLearningNodeStatusResult> {
+  const { nodeId, nodeTitle, subjectSlug, status } = params;
+
+  let targetNode: NodeRow | null = null;
+
+  // 1. Direct lookup by nodeId if provided
+  if (nodeId) {
+    targetNode = await getNodeById(ownerId, nodeId);
+  }
+
+  // 2. Lookup within subject if subjectSlug provided
+  if (!targetNode && subjectSlug) {
+    const subject = await getSubjectBySlug(ownerId, subjectSlug);
+    if (subject) {
+      const subjectNodes = await listNodes(ownerId, subject.id);
+      if (nodeId) {
+        const needle = nodeId.trim().toLowerCase();
+        targetNode =
+          subjectNodes.find((n) => n.id.toLowerCase() === needle) || null;
+      }
+      if (!targetNode && nodeTitle) {
+        const titleNeedle = nodeTitle.trim().toLowerCase();
+        targetNode =
+          subjectNodes.find((n) => n.title.toLowerCase() === titleNeedle) ||
+          subjectNodes.find((n) => n.title.toLowerCase().includes(titleNeedle)) ||
+          subjectNodes.find((n) => titleNeedle.includes(n.title.toLowerCase())) ||
+          null;
+      }
+      if (!targetNode && nodeId) {
+        const idNeedle = nodeId.trim().toLowerCase();
+        targetNode =
+          subjectNodes.find((n) => n.title.toLowerCase().includes(idNeedle)) ||
+          null;
+      }
+    }
+  }
+
+  // 3. Fallback: search across all owner nodes by ID or Title
+  if (!targetNode && (nodeId || nodeTitle)) {
+    const searchId = (nodeId || "").trim();
+    const searchTitle = (nodeTitle || nodeId || "").trim();
+    const rows = await getDb().query(
+      `select n.id, n.subject_id, n.difficulty_level, n.ordinal, n.title, n.summary,
+              n.github_md_path, n.project_milestone, n.status, n.created_at, n.updated_at
+       from lms_nodes n
+       join lms_subjects sub on n.subject_id = sub.id
+       where sub.owner_id = $1 and (
+         lower(n.id) = lower($2) or
+         lower(n.title) = lower($3) or
+         lower(n.title) like '%' || lower($3) || '%'
+       )
+       order by n.updated_at desc
+       limit 1`,
+      [ownerId, searchId, searchTitle],
+    );
+    if (rows.length > 0) {
+      const r = rows[0];
+      targetNode = {
+        id: String(r.id),
+        subject_id: String(r.subject_id),
+        difficulty_level: Number(r.difficulty_level),
+        ordinal: Number(r.ordinal),
+        title: String(r.title),
+        summary: r.summary !== null && r.summary !== undefined ? String(r.summary) : "",
+        github_md_path: r.github_md_path !== null && r.github_md_path !== undefined ? String(r.github_md_path) : "",
+        project_milestone: r.project_milestone !== null && r.project_milestone !== undefined ? String(r.project_milestone) : "",
+        status: r.status as NodeStatus,
+        created_at: String(r.created_at),
+        updated_at: String(r.updated_at),
+      };
+    }
+  }
+
+  if (!targetNode) {
+    throw new LMSValidationError(
+      `Learning node not found for identifier "${nodeId || nodeTitle || "unknown"}".`,
+    );
+  }
+
+  const updatedNode = await updateNodeStatus(ownerId, targetNode.id, status);
+  if (!updatedNode) {
+    throw new LMSValidationError(`Failed to update node status for "${targetNode.id}".`);
+  }
+
+  const newlyUnlockedNodeIds: string[] = [];
+
+  // When completing or mastering a node, compute dependent unlocks and initialize SRS
+  if (status === "completed" || status === "mastered_by_placement") {
+    const allNodes = await listNodes(ownerId, targetNode.subject_id);
+    const allEdges = await listNodeEdges(ownerId, targetNode.subject_id);
+
+    const unlockableIds = unlockedNodes(
+      allNodes.map((n) => ({
+        id: n.id,
+        status: n.id === targetNode.id ? status : n.status,
+      })),
+      allEdges.map((e) => ({
+        nodeId: e.node_id,
+        dependsOnNodeId: e.depends_on_node_id,
+      })),
+    );
+
+    const toUnlock = allNodes.filter(
+      (n) => unlockableIds.includes(n.id) && n.status === "locked",
+    );
+
+    if (toUnlock.length > 0) {
+      const unlockIds = toUnlock.map((n) => n.id);
+      await updateNodesStatus(ownerId, targetNode.subject_id, unlockIds, "unlocked");
+      newlyUnlockedNodeIds.push(...unlockIds);
+    }
+
+    if (status === "completed") {
+      const existingSrs = await getSpacedRepetition(ownerId, targetNode.id);
+      if (!existingSrs) {
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await upsertSpacedRepetition(ownerId, targetNode.subject_id, targetNode.id, {
+          stability: 2.5,
+          difficulty: 2.5,
+          reps: 1,
+          lapses: 0,
+          intervalDays: 1,
+          lastReviewedAt: new Date().toISOString(),
+          nextReviewAt: tomorrow,
+        });
+      }
+    }
+  }
+
+  return {
+    node: updatedNode,
+    newlyUnlockedNodeIds,
+  };
+}
+

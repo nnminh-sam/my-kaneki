@@ -23,6 +23,7 @@ import {
 import {
   draftLearningPath,
   getNextNodes,
+  updateLearningNodeStatus,
   type LearningPathNodeInput,
 } from "./path.service";
 import { generateQuiz } from "./quiz.service";
@@ -309,6 +310,31 @@ export function createLmsAgentTools(ownerId: string) {
         try {
           const nextNodes = await getNextNodes(ownerId, args.subjectSlug);
           return { success: true, nextNodes };
+        } catch (err) {
+          return failure(err);
+        }
+      },
+    }),
+
+    lmsUpdateNodeStatus: tool({
+      description:
+        "Update the learning status of a module/node (e.g. mark as completed, in_progress, unlocked, or locked). Automatically unlocks downstream dependent modules when completed and schedules spaced repetition review.",
+      inputSchema: z.object({
+        nodeId: z.string().optional().describe("Node/Module ID (e.g. 'complexity-analysis' or 'node-1')"),
+        nodeTitle: z.string().optional().describe("Title or keywords of the module to mark"),
+        subjectSlug: z.string().optional().describe("Subject slug (e.g. 'data-structures-and-algorithms-dsa')"),
+        status: z
+          .enum(["locked", "unlocked", "in_progress", "completed", "mastered_by_placement"])
+          .describe("The new status for the node (typically 'completed')"),
+      }),
+      execute: async (args): Promise<ToolResult<{ node: unknown; newlyUnlockedNodeIds: string[] }>> => {
+        try {
+          const result = await updateLearningNodeStatus(ownerId, args);
+          return {
+            success: true,
+            node: result.node,
+            newlyUnlockedNodeIds: result.newlyUnlockedNodeIds,
+          };
         } catch (err) {
           return failure(err);
         }

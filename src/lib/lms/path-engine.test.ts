@@ -19,6 +19,7 @@ import {
 import {
   draftLearningPath,
   getNextNodes,
+  updateLearningNodeStatus,
 } from "./path.service";
 import {
   generateQuiz,
@@ -512,5 +513,67 @@ describe("LMS Phase 3: Path Engine, Placement, Mastery Gates, and SRS (PGlite)",
     // Transition subject to completed
     const completedSubject = await transitionSubjectStatus(owner, subject.slug, "completed");
     assert.equal(completedSubject.status, "completed");
+  });
+
+  it("updates learning node status and unlocks downstream dependent nodes", async () => {
+    await setupTestDb();
+    const owner = "test-node-status-owner";
+
+    const subject = await createLearningSubject(owner, {
+      title: "Algorithms in Depth",
+      slug: "algorithms-in-depth",
+      difficultyScaleN: 4,
+    });
+
+    const src = await createSource(owner, subject.id, {
+      title: "Algorithms Syllabus",
+      track: "byos",
+      sourceType: "markdown",
+      validationStatus: "validated",
+    });
+
+    await draftLearningPath(owner, subject.slug, {
+      nodes: [
+        {
+          id: "algo-1",
+          title: "Complexity Analysis & Architectural Trade-offs",
+          difficultyLevel: 1,
+          ordinal: 1,
+          sourceIds: [src.id],
+        },
+        {
+          id: "algo-2",
+          title: "Linear Data Structures",
+          difficultyLevel: 2,
+          ordinal: 2,
+          sourceIds: [src.id],
+        },
+      ],
+      edges: [{ nodeId: "algo-2", dependsOnNodeId: "algo-1" }],
+    });
+
+    const node1Initial = await getNodeById(owner, "algo-1");
+    assert.equal(node1Initial?.status, "unlocked");
+    const node2Initial = await getNodeById(owner, "algo-2");
+    assert.equal(node2Initial?.status, "locked");
+
+    // Update by title match
+    const result = await updateLearningNodeStatus(owner, {
+      subjectSlug: subject.slug,
+      nodeTitle: "Complexity Analysis",
+      status: "completed",
+    });
+
+    assert.equal(result.node.id, "algo-1");
+    assert.equal(result.node.status, "completed");
+    assert.deepEqual(result.newlyUnlockedNodeIds, ["algo-2"]);
+
+    const node2After = await getNodeById(owner, "algo-2");
+    assert.equal(node2After?.status, "unlocked");
+
+    // Verify SRS record was created
+    const srs = await getSpacedRepetition(owner, "algo-1");
+    assert.ok(srs);
+    assert.equal(srs.node_id, "algo-1");
   });
 });

@@ -230,7 +230,21 @@ describe("LMS Phase 6: End-to-End Automated Learner Lifecycle", () => {
     const node2After = await getNodeById(ownerId, "node-2");
     assert.equal(node2After?.status, "unlocked");
 
-    // 11. Check SRS Due Reviews
+    // 11. Test lmsUpdateNodeStatus tool directly (e.g. Tutor sidekick marking node completed)
+    const updateNodeRes: any = await tools.lmsUpdateNodeStatus.execute({
+      subjectSlug: "consensus-protocols",
+      nodeTitle: "WAL Log Framing & AppendEntries",
+      status: "completed",
+    }, {} as any);
+    assert.equal(updateNodeRes.success, true);
+    assert.equal(updateNodeRes.node.id, "node-2");
+    assert.equal(updateNodeRes.node.status, "completed");
+    assert.deepEqual(updateNodeRes.newlyUnlockedNodeIds, ["node-3"]);
+
+    const node3After = await getNodeById(ownerId, "node-3");
+    assert.equal(node3After?.status, "unlocked");
+
+    // 12. Check SRS Due Reviews
     const dueReviewsRes: any = await tools.lmsGetDueReviews.execute({
       subjectSlug: "consensus-protocols",
     }, {} as any);

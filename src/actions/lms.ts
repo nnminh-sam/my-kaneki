@@ -19,7 +19,8 @@ import { resolveResearchEscalation } from "@/lib/lms/research";
 import { removeSubjectSourceMetadata } from "@/lib/lms/github-knowledge";
 import { deleteFile } from "@/actions/github";
 import { getDb } from "@/lib/db";
-import type { QuizSubmission } from "@/lib/lms/types";
+import { updateLearningNodeStatus } from "@/lib/lms/path.service";
+import type { QuizSubmission, NodeStatus } from "@/lib/lms/types";
 
 export interface SubmitQuizActionResult {
   ok: boolean;
@@ -225,3 +226,34 @@ export async function deleteSourceAction(sourceId: string) {
 
   return { ok: true };
 }
+
+export async function updateNodeStatusAction(input: {
+  nodeId?: string;
+  nodeTitle?: string;
+  subjectSlug?: string;
+  status: NodeStatus;
+}) {
+  const owner = await currentOwnerId();
+  if (owner === null) {
+    return { ok: false, error: "Unauthorized" };
+  }
+
+  try {
+    const res = await updateLearningNodeStatus(owner, input);
+    if (input.subjectSlug) {
+      revalidatePath(`/learning/${input.subjectSlug}`);
+      revalidatePath(`/learning/${input.subjectSlug}/module/${res.node.id}`);
+    }
+    return {
+      ok: true,
+      node: res.node,
+      newlyUnlockedNodeIds: res.newlyUnlockedNodeIds,
+    };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
