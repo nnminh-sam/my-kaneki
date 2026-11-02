@@ -9,6 +9,7 @@ import {
   Bot,
   Check,
   CheckSquare,
+  Copy,
   FileText,
   Loader2,
   Pencil,
@@ -68,13 +69,37 @@ export function AgentChat({
   } | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(session.title || "New Chat");
+  const [copiedId, setCopiedId] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setTitleInput(session.title || "New Chat");
     setIsEditingTitle(false);
+    setCopiedId(false);
   }, [session.id, session.title]);
+
+  const handleCopySessionId = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(session.id);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = session.id;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy conversation ID:", err);
+    }
+  };
 
   const handleSaveTitle = () => {
     const trimmed = titleInput.trim();
@@ -180,11 +205,11 @@ export function AgentChat({
     <div className="flex h-full w-full flex-col bg-bg">
       {/* Top Header */}
       <div className="hidden h-15 shrink-0 items-center justify-between border-b border-border bg-surface px-6 md:flex">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-white shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0 mr-4">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-xs">
             <Bot className="h-4 w-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             {isEditingTitle ? (
               <div className="flex items-center gap-1.5 py-0.5">
                 <input
@@ -216,8 +241,8 @@ export function AgentChat({
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 group/header-title">
-                <h1 className="text-sm font-semibold text-fg">
+              <div className="flex items-center gap-1.5 group/header-title min-w-0">
+                <h1 className="truncate text-sm font-semibold text-fg">
                   {headerTitle ?? session.title ?? "New Chat"}
                 </h1>
                 {onRenameSession && !headerTitle && (
@@ -228,7 +253,7 @@ export function AgentChat({
                       setIsEditingTitle(true);
                     }}
                     title="Rename chat"
-                    className="opacity-0 group-hover/header-title:opacity-100 text-muted hover:text-accent p-0.5 rounded transition-opacity cursor-pointer"
+                    className="opacity-0 group-hover/header-title:opacity-100 text-muted hover:text-accent p-0.5 rounded transition-opacity cursor-pointer shrink-0"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
@@ -238,7 +263,27 @@ export function AgentChat({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted">
+        <div className="flex items-center gap-2 text-xs text-muted shrink-0">
+          <button
+            type="button"
+            onClick={handleCopySessionId}
+            title={`Copy conversation ID: ${session.id}`}
+            aria-label="Copy conversation ID"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:border-accent/40 hover:text-fg cursor-pointer"
+          >
+            {copiedId ? (
+              <>
+                <Check className="h-3 w-3 text-ok" />
+                <span className="text-ok">Copied ID</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                <span>Copy ID</span>
+              </>
+            )}
+          </button>
+
           {headerBadge ? (
             <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-subtle px-2 py-1 text-[11px] font-medium text-fg">
               {headerBadge}

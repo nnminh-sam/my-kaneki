@@ -1,7 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Check, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Check,
+  Copy,
+  MessageSquare,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { CollapsibleSidebar } from "@/components/CollapsibleSidebar";
 import type { ChatSession } from "@/lib/chat-sessions";
 
@@ -48,6 +57,45 @@ export function ChatSessionList({
 }: ChatSessionListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!menuSessionId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuSessionId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [menuSessionId]);
+
+  const handleCopyId = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(id);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = id;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopiedSessionId(id);
+      setTimeout(
+        () => setCopiedSessionId((curr) => (curr === id ? null : curr)),
+        1500,
+      );
+    } catch (err) {
+      console.error("Failed to copy conversation ID:", err);
+    }
+  };
 
   const handleStartRename = (session: ChatSession, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -117,9 +165,11 @@ export function ChatSessionList({
                 </div>
               )
             ) : (
-              sessions.map((session) => {
+              sessions.map((session, index) => {
                 const isActive = session.id === activeSessionId;
                 const isEditing = editingId === session.id;
+                const isNearBottom =
+                  index >= sessions.length - 2 && sessions.length > 3;
                 const relTime = formatRelativeTime(
                   session.updatedAt || session.createdAt,
                 );
@@ -195,26 +245,99 @@ export function ChatSessionList({
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div
+                          className={`flex items-center gap-0.5 transition-opacity ${
+                            menuSessionId === session.id
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100"
+                          }`}
+                        >
                           <button
                             type="button"
-                            onClick={(e) => handleStartRename(session, e)}
-                            title="Rename conversation"
-                            className="rounded p-1 text-muted transition-colors hover:text-accent cursor-pointer"
+                            onClick={(e) => handleCopyId(session.id, e)}
+                            title={
+                              copiedSessionId === session.id
+                                ? "Copied ID!"
+                                : `Copy conversation ID (${session.id})`
+                            }
+                            aria-label="Copy conversation ID"
+                            className={`rounded p-1 transition-colors cursor-pointer ${
+                              copiedSessionId === session.id
+                                ? "text-ok"
+                                : "text-muted hover:text-accent hover:bg-surface-subtle"
+                            }`}
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            {copiedSessionId === session.id ? (
+                              <Check className="h-3.5 w-3.5 text-ok" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteSession(session.id);
-                            }}
-                            title="Delete conversation"
-                            className="rounded p-1 text-muted transition-colors hover:text-danger cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuSessionId((curr) =>
+                                  curr === session.id ? null : session.id,
+                                );
+                              }}
+                              title="More options"
+                              aria-label="More options"
+                              className={`rounded p-1 transition-colors cursor-pointer ${
+                                menuSessionId === session.id
+                                  ? "bg-surface-subtle text-fg"
+                                  : "text-muted hover:text-fg hover:bg-surface-subtle"
+                              }`}
+                            >
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </button>
+
+                            {menuSessionId === session.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuSessionId(null);
+                                  }}
+                                />
+                                <div
+                                  className={`absolute right-0 z-50 w-36 rounded-xl border border-border bg-surface p-1 shadow-lg text-xs ${
+                                    isNearBottom
+                                      ? "bottom-full mb-1"
+                                      : "top-full mt-1"
+                                  }`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      setMenuSessionId(null);
+                                      handleStartRename(session, e);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-fg hover:bg-surface-subtle transition-colors cursor-pointer"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5 text-muted" />
+                                    <span>Rename</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuSessionId(null);
+                                      onDeleteSession(session.id);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-danger hover:bg-danger-soft transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </>
                     )}
