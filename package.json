@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "db:smoke": "node --env-file=.env.local scripts/db-smoke.mjs",
-    "db:migrate": "node --env-file=.env.local --import tsx scripts/db-migrate.ts"
+    "db:migrate": "node --env-file=.env.local --import tsx scripts/db-migrate.ts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build -o storybook-static"
   },
   "dependencies": {
     "@ai-sdk/mcp": "^2.0.78",
@@ -38,6 +40,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@storybook/addon-a11y": "10.6.7",
+    "@storybook/addon-docs": "10.6.7",
+    "@storybook/nextjs-vite": "10.6.7",
     "@tailwindcss/postcss": "^4",
     "@types/katex": "^0.16.8",
     "@types/node": "^24.19.0",
@@ -46,9 +51,11 @@
     "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "storybook": "10.6.7",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
+    "vite": "7.3.8",
     "vitest": "^5.0.2"
   }
 }

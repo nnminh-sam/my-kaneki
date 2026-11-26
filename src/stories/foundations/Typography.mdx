@@ -1,0 +1,57 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { Recipe } from "./Swatches";
+
+<Meta title="Foundations/Typography" />
+
+# Typography
+
+**Families** — `Geist` (sans, `font-sans`) for everything and `Geist Mono` (`font-mono`) for code, IDs, paths, model
+names and numbers in tables. Both are loaded by `next/font` in `src/app/layout.tsx` and wired to Tailwind through
+`--font-sans` / `--font-mono` in `globals.css`.
+
+**Density** — the UI is a dense workspace tool. The base reading size is small: `text-xs` (12px) is by far the
+most used size (~320 uses), then `text-[11px]` (~130) for metadata and badges, `text-sm` (14px, ~90) for body text
+in forms, inputs and messages. Larger sizes are reserved for page titles.
+
+**Weights** — `font-medium` (500) and `font-semibold` (600) carry hierarchy (~180 uses each); `font-bold` is only
+used for page titles.
+
+## Scale in use
+
+<Recipe name="Page title (h1)" className="text-2xl font-bold tracking-tight text-fg">
+  <h1 className="text-2xl font-bold tracking-tight text-fg">Learning paths</h1>
+</Recipe>
+
+<Recipe name="Section / view title (h1 in panels)" className="text-xl font-bold tracking-tight text-fg">
+  <h1 className="text-xl font-bold tracking-tight text-fg">Deployments</h1>
+</Recipe>
+
+<Recipe name="Card / section heading (h2, h3)" className="text-sm font-semibold text-fg">
+  <h2 className="text-sm font-semibold text-fg">Recent sessions</h2>
+</Recipe>
+
+<Recipe name="Body" className="text-sm text-fg">
+  <p className="text-sm text-fg">Notes sync to your GitHub repository on save.</p>
+</Recipe>
+
+<Recipe name="Dense body / UI text (most common)" className="text-xs text-fg">
+  <p className="text-xs text-fg">3 tasks due today · 1 overdue</p>
+</Recipe>
+
+<Recipe name="Secondary / metadata" className="text-[11px] text-muted">
+  <p className="text-[11px] text-muted">Updated 2 minutes ago</p>
+</Recipe>
+
+<Recipe name="Overline label" className="text-[11px] font-medium text-muted uppercase tracking-wider">
+  <div className="text-[11px] font-medium text-muted uppercase tracking-wider">Workspace</div>
+</Recipe>
+
+<Recipe name="Mono (IDs, paths, model names)" className="font-mono text-[11px] text-muted">
+  <code className="font-mono text-[11px] text-muted">notes/system-design.md · gpt-4o-mini · knk_3f9a…</code>
+</Recipe>
+
+## Long-form content
+
+Markdown (notes, chat replies, LMS modules) is rendered by `MarkdownPreview` / `ChatMessage` with
+`react-markdown` + `remark-gfm`, math via `remark-math` + `rehype-katex`, and Mermaid diagrams. See
+**Primitives / MarkdownPreview**.

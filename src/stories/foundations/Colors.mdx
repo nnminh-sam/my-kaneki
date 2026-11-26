@@ -1,0 +1,61 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { SwatchGrid } from "./Swatches";
+
+<Meta title="Foundations/Colors" />
+
+# Colors
+
+All color comes from **semantic tokens** defined once in `src/app/globals.css` and exposed to Tailwind
+through `@theme inline` (`--color-<name>: var(--<name>)`), so components write `bg-surface`, `text-muted`,
+`border-border` — never raw hex.
+
+Each token has a light value (`:root`) and a dark value (`:root[data-theme="dark"]`, and the OS preference when
+`data-theme` is `system`). The root layout sets `data-theme` from the user's saved setting
+(`src/app/layout.tsx`, `src/lib/current-theme.ts`). **Switch the Theme toolbar button above** — the values below
+are read live from the page.
+
+## Surfaces & text
+
+<SwatchGrid
+  tokens={[
+    { cssVar: "--bg", utility: "bg", usage: "Page background (body). Also inputs that sit on a surface." },
+    { cssVar: "--surface", utility: "surface", usage: "Cards, panels, sidebars, modals, menus — the most used background." },
+    { cssVar: "--surface-subtle", utility: "surface-subtle", usage: "Hover rows, code blocks, skeletons, nested/inset areas." },
+    { cssVar: "--border", utility: "border", usage: "Default 1px borders and dividers (border-border)." },
+    { cssVar: "--fg", utility: "fg", usage: "Primary text and icons." },
+    { cssVar: "--muted", utility: "muted", usage: "Secondary text, labels, metadata, placeholders (text-muted, placeholder:text-muted)." },
+  ]}
+/>
+
+## Accent
+
+<SwatchGrid
+  tokens={[
+    { cssVar: "--accent", utility: "accent", usage: "Primary actions, links, focus borders, active nav, progress, spinners." },
+    { cssVar: "--accent-soft", utility: "accent-soft", usage: "Selected/active backgrounds, accent badges, loading-bar track." },
+  ]}
+/>
+
+## Status
+
+Each status has a strong color (text, icons, solid fills) and a `-soft` tint (backgrounds of alerts and badges).
+
+<SwatchGrid
+  tokens={[
+    { cssVar: "--ok", utility: "ok", usage: "Success: completed nodes, passed quizzes, healthy deployments." },
+    { cssVar: "--ok-soft", utility: "ok-soft", usage: "Success alert / badge background." },
+    { cssVar: "--warn", utility: "warn", usage: "Warnings: pending review, rate limits, degraded state." },
+    { cssVar: "--warn-soft", utility: "warn-soft", usage: "Warning alert / badge background." },
+    { cssVar: "--danger", utility: "danger", usage: "Errors, destructive actions (delete, revoke)." },
+    { cssVar: "--danger-soft", utility: "danger-soft", usage: "Error alert / destructive badge background." },
+  ]}
+/>
+
+## Rules
+
+- **Use tokens, not palette colors.** A few places still use Tailwind palette colors directly
+  (`emerald-*` ≈ 30 uses, `amber-*` ≈ 25 uses, mostly status pills with a `dark:` override). Prefer `ok` / `warn`
+  tokens for new code — they switch themes automatically.
+- **Opacity modifiers are fine on tokens**: `bg-accent/90` (primary hover), `border-danger/20`, `bg-surface-subtle/30`.
+- **Text on a solid accent** is `text-white` (light); one button uses `dark:text-black` because the dark accent
+  (`#8d9bff`) is light. Check contrast with the Accessibility panel when adding solid fills.

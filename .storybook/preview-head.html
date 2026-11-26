@@ -1,0 +1,25 @@
+<!-- The app loads Geist through next/font in src/app/layout.tsx; Storybook loads the same families here. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+/>
+<style>
+  :root {
+    --font-geist-sans: "Geist";
+    --font-geist-mono: "Geist Mono";
+  }
+  /* Markdown tables on docs pages: use the app's tokens (Storybook's dark theme stripes rows in an off-palette gray). */
+  .sbdocs table tr {
+    background-color: var(--surface);
+    border-color: var(--border);
+  }
+  .sbdocs table tr:nth-of-type(2n) {
+    background-color: var(--surface-subtle);
+  }
+  .sbdocs table th,
+  .sbdocs table td {
+    border-color: var(--border);
+  }
+</style>

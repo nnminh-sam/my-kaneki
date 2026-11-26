@@ -1,0 +1,38 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Overview" />
+
+# my_kaneki — design system & system docs
+
+my_kaneki is a personal central workspace: an AI agent chat, todos, GitHub-backed notes, a self-learning system
+(LMS) with an MCP server, a Vercel deployments dashboard, AI provider settings and an audit log — one Next.js 16 app
+on Vercel with Neon Postgres.
+
+This Storybook is the reference for **how the app looks and how it is built**.
+
+| Section | What's inside |
+| --- | --- |
+| **System / System Design** | Architecture, auth, data model, AI chat & tools, LMS pipeline, MCP server, integrations, known gaps |
+| **System / Use Cases** | Actors, navigation map, every use case with its flow, and who (UI / agent / MCP) can perform it |
+| **Foundations** | Color tokens (light/dark), typography, spacing & shape, and the canonical class recipes for buttons, inputs, cards, badges and alerts |
+| **Primitives** | Shared building blocks: loading states, submit button, modal, markdown renderer |
+| **Chat** | Chat message, tool-call card, composer |
+| **LMS** | Module cards by status, placement / capstone banners, onboarding |
+| **Notes / Layout** | File tree, collapsible sidebar shell |
+
+## Working with it
+
+- `npm run storybook` — dev server on http://localhost:6006
+- `npm run build-storybook` — static build in `storybook-static/`
+- Use the **Theme** toolbar button to switch light / dark / system; it sets `data-theme` on `<html>` exactly like the app.
+- The **Accessibility** panel runs axe on every story.
+
+## Conventions
+
+- Styling is Tailwind v4 with **semantic tokens only** (`bg-surface`, `text-muted`, `border-border`, `bg-accent`…),
+  defined once in `src/app/globals.css`. See **Foundations / Colors**.
+- There are no Button/Card/Input components — use the recipes in **Foundations / Patterns**.
+- Icons come from `lucide-react`.
+- Stories live next to their component (`Component.stories.tsx`). Components that import server code are given
+  module mocks in `__mocks__/` folders, registered in `.storybook/preview.tsx` (`sb.mock`).
+- The system documents are plain markdown in `docs/system/` — edit them there; Storybook renders the same files.

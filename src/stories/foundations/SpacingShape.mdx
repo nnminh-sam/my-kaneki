@@ -1,0 +1,51 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Spacing & Shape" />
+
+# Spacing & shape
+
+The app uses Tailwind's default 4px spacing scale with no custom spacing tokens. These are the values the code
+actually settles on (counted across `src/**/*.tsx`).
+
+## Spacing
+
+| Use | Classes | Notes |
+| --- | --- | --- |
+| Icon ↔ label gap | `gap-1.5` (most used), `gap-1`, `gap-2` | Buttons, nav items, badges |
+| Compact control padding | `px-2.5 py-1`, `px-3 py-1.5` | Toolbar and secondary buttons |
+| Primary button padding | `px-4 py-2` (default), `px-3 py-1.5` (small) | |
+| Input padding | `px-3 py-2` (`py-1.5` compact) | |
+| Badge / pill padding | `px-2 py-0.5` (`px-1.5` for mono pills) | |
+| Card padding | `p-4` (cards), `p-3` (insets), `p-2.5` (list tiles) | |
+
+## Radius
+
+| Radius | Class | Used for |
+| --- | --- | --- |
+| 6px | `rounded-md` | Inputs (compact), small buttons, inline badges |
+| 8px | `rounded-lg` | **Default** — buttons, inputs, tiles, alerts (most used) |
+| 12px | `rounded-xl` | Cards, panels, modals |
+| 16px | `rounded-2xl` | Hero/onboarding blocks, chat composer |
+| full | `rounded-full` | Status pills, avatars, dots |
+
+## Elevation
+
+The design is **flat**: hierarchy comes from `border-border` + `bg-surface` on `bg-bg`, not shadows.
+`shadow-xs` / `shadow-2xs` (a hairline lift) is the standard for buttons and cards; `shadow-lg` / `shadow-xl`
+appear only on floating layers (modals, menus, mobile drawers).
+
+## Icon sizes
+
+Icons are [lucide-react](https://lucide.dev) only. Sizes are set with `h-* w-*`:
+
+| Size | Class | Used for |
+| --- | --- | --- |
+| 12px | `h-3 w-3` | Inside pills and dense metadata |
+| 14px | `h-3.5 w-3.5` | **Default** — inside `text-xs` buttons and nav |
+| 16px | `h-4 w-4` | `text-sm` controls, headers |
+| 32px | `h-8 w-8` | Icon-only square buttons (with `rounded-lg`), avatars |
+
+## Motion
+
+`transition-colors` on hover states, `active:scale-95` on icon buttons, `animate-spin` (spinner),
+`animate-pulse` (skeletons) and the custom `animate-indeterminate` (top loading bar, defined in `globals.css`).
