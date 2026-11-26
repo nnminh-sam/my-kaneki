@@ -1,9 +1,8 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
 import { setEmbedderForTests, createDeterministicFakeEmbedder } from "@/lib/lms/embeddings";
 import { POST, GET, DELETE } from "./route";
 import { createQuiz } from "@/lib/lms/repo";
@@ -13,29 +12,18 @@ describe("Remote MCP Server (/api/mcp)", () => {
   const OWNER_ALICE = "user-alice";
   const OWNER_BOB = "user-bob";
 
-  async function setupTestDb() {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
+  // All test files share one process (--experimental-test-isolation=none): restore the env vars set below.
+  const ENV_KEYS = ["JWT_SECRET", "KANEKI_MCP_API_KEY", "KANEKI_MCP_OWNER_ID"] as const;
+  const savedEnv = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
+  after(() => {
+    for (const k of ENV_KEYS) {
+      if (savedEnv[k] === undefined) delete process.env[k];
+      else process.env[k] = savedEnv[k];
+    }
+  });
 
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+  async function setupTestDb() {
+    const { pg } = await useTestDb();
 
     setEmbedderForTests(createDeterministicFakeEmbedder(1536));
     process.env.JWT_SECRET = "abcdefghijklmnopqrstuvwxyz0123456789";

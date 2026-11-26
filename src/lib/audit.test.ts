@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "./db";
-import { migrate } from "./migrate";
 import { upsertChatSession } from "./chat-db";
 import { addTodo } from "./todos";
 import {
@@ -14,24 +13,7 @@ import {
 
 describe("Session API & Tool Audit Log (PGlite)", () => {
   it("records tool calls, MCP APIs, LLM telemetry, and linked entity mutations per session", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push((await pg.query(s.text, s.params)).rows as Record<string, unknown>[]);
-        }
-        return out;
-      },
-    });
-
-    const applied = await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    const { applied } = await useTestDb();
     assert.ok(applied.includes("003_audit_log"));
     assert.ok(applied.includes("010_session_audit_indexes"));
 

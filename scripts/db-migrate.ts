@@ -2,12 +2,14 @@
 import ws from "ws";
 import { Client, neonConfig } from "@neondatabase/serverless";
 import { migrate } from "../src/lib/migrate";
+import { configureLocalNeon } from "../src/lib/neon-local";
 
 neonConfig.webSocketConstructor = ws;
 
 async function main() {
   const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL_UNPOOLED or DATABASE_URL must be set");
+  configureLocalNeon(url);
   const client = new Client(url);
   await client.connect();
   try {

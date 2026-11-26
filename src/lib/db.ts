@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { configureLocalNeon } from "./neon-local";
 
 export type Row = Record<string, unknown>;
 export interface Statement {
@@ -14,6 +15,7 @@ export interface Db {
 }
 
 export function neonDb(url: string): Db {
+  configureLocalNeon(url);
   const sql = neon(url);
   return {
     query: (text, params) => sql.query(text, params),

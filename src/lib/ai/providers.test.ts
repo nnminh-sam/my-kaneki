@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
 import {
   getUserAiConfig,
   saveUserAiConfig,
@@ -19,28 +18,7 @@ import {
 
 describe("AI Provider Module & Database MCP API Keys", () => {
   async function setupTestDb() {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    const { pg } = await useTestDb();
 
     resetAiTableEnsuredForTests();
     return pg;

@@ -1,8 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
-import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
+import { useTestDb } from "@/test/shared-db";
 import {
   upsertProfile,
   getProfile,
@@ -31,29 +29,7 @@ import {
 
 describe("LMS Repository Layer (PGlite)", () => {
   it("runs full lifecycle with cross-owner isolation", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    // Run all migrations
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    await useTestDb();
 
     const owner1 = "user-alice";
     const owner2 = "user-bob";

@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
 import {
   createSubject,
   getSubjectBySlug,
@@ -24,28 +23,7 @@ import { parseSpreadsheet } from "./parsers/xlsx";
 
 describe("LMS Phase 6: Security & Cross-Owner Isolation Matrix", () => {
   it("enforces strict cross-owner isolation across all repositories and services", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    await useTestDb();
 
     const alice = "owner-alice-sec";
     const bob = "owner-bob-sec";

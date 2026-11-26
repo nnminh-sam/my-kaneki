@@ -1,9 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import type { UIMessage } from "ai";
-import { setDbForTests } from "./db";
-import { migrate } from "./migrate";
 import {
   deleteChatSession,
   getChatSession,
@@ -17,25 +15,7 @@ import { mergeMessages } from "./chat-sessions";
 
 describe("Chat sessions database persistence (PGlite)", () => {
   it("migrates schema and persists chat sessions per owner", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push((await pg.query(s.text, s.params)).rows as Record<string, unknown>[]);
-        }
-        return out;
-      },
-    });
-
-    // Run migrations
-    const applied = await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    const { applied } = await useTestDb();
     assert.ok(applied.includes("004_chat_sessions"));
 
     const owner1 = "U-1";
@@ -139,24 +119,7 @@ describe("Chat sessions database persistence (PGlite)", () => {
   });
 
   it("paginates messages and preserves older history during partial updates", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push((await pg.query(s.text, s.params)).rows as Record<string, unknown>[]);
-        }
-        return out;
-      },
-    });
-
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    await useTestDb();
 
     const owner = "U-PAGE";
     const totalCount = 60;

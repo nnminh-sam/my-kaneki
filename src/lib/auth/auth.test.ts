@@ -1,12 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { SESSION_TTL_SECONDS, shouldRenew, signJwt, verifyJwt } from "./jwt";
 import { hashPassword, validatePassword, verifyPassword } from "./password";
 import { authMode, authenticate, issueSession, safeNext } from "./index";
 import { logIn, signUp } from "./users";
 import { setDbForTests } from "../db";
-import { migrate } from "../migrate";
 
 const TEST_SECRET = "0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -85,24 +84,7 @@ describe("Auth mode & session helpers", () => {
 
 describe("Neon schema migration & user auth flow (PGlite)", () => {
   it("migrates 001_users.sql, signs up first user, and logs in", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push((await pg.query(s.text, s.params)).rows as Record<string, unknown>[]);
-        }
-        return out;
-      },
-    });
-
-    const applied = await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) => (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    const { applied } = await useTestDb();
     assert.ok(applied.includes("001_users"));
 
     const fastScrypt = { log2N: 12, r: 8, p: 1 };

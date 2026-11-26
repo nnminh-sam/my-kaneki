@@ -45,6 +45,21 @@ Central workspace hub built with **Next.js (App Router)**, **Neon PostgreSQL** (
    npm run db:migrate
    ```
 
+   **Or use a local database instead of Neon** (needs Docker). `docker-compose.yml` runs Postgres 17 (Alpine)
+   behind Neon's local HTTP/WebSocket proxy, so the app code is unchanged. Set both URLs in `.env.local` to
+   the `db.localtest.me` host (it resolves to 127.0.0.1; `src/lib/neon-local.ts` routes it to the proxy):
+   ```bash
+   DATABASE_URL="postgres://postgres:postgres@db.localtest.me:5432/kaneki"
+   DATABASE_URL_UNPOOLED="postgres://postgres:postgres@db.localtest.me:5432/kaneki"
+   ```
+   ```bash
+   npm run db:up       # start postgres + neon-proxy
+   npm run db:smoke
+   npm run db:migrate
+   npm run db:down     # stop (data is kept in the pgdata volume)
+   ```
+   The local image has no pgvector, so RAG search is keyword-only (migration 006 skips the vector column).
+
 3. Start the development server:
    ```bash
    npm run dev
