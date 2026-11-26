@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { authenticateMcpRequestAsync, SESSION_COOKIE } from "@/lib/auth";
 import { createLmsMcpServer } from "@/lib/lms/mcp-server";
 import { recordAudit } from "@/lib/audit";
+import { featureDisabledMessage, isFeatureEnabled } from "@/lib/features";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
         status: 401,
         headers: { "WWW-Authenticate": 'Bearer realm="my_kaneki"' },
       },
+    );
+  }
+
+  // 2b. Feature gate: a disabled feature answers with a JSON-RPC error and creates no LMS server.
+  if (!(await isFeatureEnabled(auth.ownerId, "lms"))) {
+    return NextResponse.json(
+      { jsonrpc: "2.0", error: { code: -32000, message: featureDisabledMessage("lms") }, id: null },
+      { status: 403 },
     );
   }
 

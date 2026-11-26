@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { currentOwnerId } from "@/lib/owner";
+import { featureDisabledMessage, isFeatureEnabled } from "@/lib/features";
 import {
   getQuizById,
   getSubjectById,
@@ -42,6 +43,9 @@ export async function submitQuizAction(input: {
   const owner = await currentOwnerId();
   if (owner === null) {
     return { ok: false, error: "Unauthorized" };
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return { ok: false, error: featureDisabledMessage("lms") };
   }
 
   const quiz = await getQuizById(owner, input.quizId);
@@ -142,6 +146,9 @@ export async function startPlacementAction(subjectSlug: string) {
   if (owner === null) {
     return { ok: false, error: "Unauthorized" };
   }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return { ok: false, error: featureDisabledMessage("lms") };
+  }
 
   try {
     const result = await startPlacementSession(owner, subjectSlug);
@@ -166,6 +173,9 @@ export async function resolveEscalationAction(input: {
   const owner = await currentOwnerId();
   if (owner === null) {
     return { ok: false, error: "Unauthorized" };
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return { ok: false, error: featureDisabledMessage("lms") };
   }
 
   try {
@@ -196,6 +206,9 @@ export async function deleteSourceAction(sourceId: string) {
   const owner = await currentOwnerId();
   if (owner === null) {
     return { ok: false, error: "Unauthorized" };
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return { ok: false, error: featureDisabledMessage("lms") };
   }
 
   const source = await getSourceById(owner, sourceId);
@@ -236,6 +249,9 @@ export async function updateNodeStatusAction(input: {
   const owner = await currentOwnerId();
   if (owner === null) {
     return { ok: false, error: "Unauthorized" };
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return { ok: false, error: featureDisabledMessage("lms") };
   }
 
   try {

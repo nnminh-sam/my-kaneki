@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { currentOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import { getSubjectBySlug, listNodes } from "@/lib/lms/repo";
 
 interface ModuleRedirectPageProps {
@@ -12,6 +13,10 @@ export default async function ModuleRedirectPage({
   const owner = await currentOwnerId();
   if (owner === null) {
     redirect("/login");
+  }
+
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    notFound();
   }
 
   const { slug } = await params;

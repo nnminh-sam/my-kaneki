@@ -1,3 +1,5 @@
+import type { FeatureId } from "@/lib/features/registry";
+
 export type WorkspaceNavItem = {
   id: string;
   label: string;
@@ -11,7 +13,10 @@ export type WorkspaceNavItem = {
     | "notes"
     | "deployments"
     | "ai-provider"
-    | "audit";
+    | "audit"
+    | "settings";
+  /** When set, the item is shown only while this feature is enabled. */
+  feature?: FeatureId;
 };
 
 export type ExternalAppItem = {
@@ -36,6 +41,7 @@ export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
     description: "Coding, Research, DSA & System Design",
     href: "/learning",
     icon: "learning",
+    feature: "lms",
   },
   {
     id: "todos",
@@ -72,7 +78,21 @@ export const WORKSPACE_NAV_ITEMS: readonly WorkspaceNavItem[] = [
     href: "/audit",
     icon: "audit",
   },
+  {
+    id: "settings",
+    label: "Settings",
+    description: "Feature switches for this workspace",
+    href: "/settings",
+    icon: "settings",
+  },
 ] as const;
+
+/** Ids of workspace items whose feature is not enabled. Items without a feature are never hidden. */
+export function hiddenNavItemIds(enabled: Partial<Record<FeatureId, boolean>>): string[] {
+  return WORKSPACE_NAV_ITEMS.filter((item) => item.feature !== undefined && enabled[item.feature] !== true).map(
+    (item) => item.id,
+  );
+}
 
 export const EXTERNAL_APPS: readonly ExternalAppItem[] = [
   {
