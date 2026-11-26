@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
 import { createSubject } from "./repo";
 import {
   startResearchSession,
@@ -18,28 +17,7 @@ import { InvalidTransitionError } from "./research-machine";
 describe("LMS Research & Validation Persistence Service (PGlite)", () => {
   it("enforces 3-round peer review debate, escalates, and indexes into RAG upon user approval", async () => {
     resetVectorColumnCacheForTests();
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    await useTestDb();
 
     setEmbedderForTests(createDeterministicFakeEmbedder());
 

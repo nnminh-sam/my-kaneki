@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node --import tsx --test --experimental-test-isolation=none \"src/**/*.test.ts\"",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:smoke": "node --env-file=.env.local --import tsx scripts/db-smoke.mjs",

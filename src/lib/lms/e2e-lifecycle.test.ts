@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
 import { setEmbedderForTests } from "./embeddings";
 import { setLlmJudgeForTests } from "./grading";
 import { createLmsAgentTools } from "./lms-agent-tools";
@@ -12,28 +11,7 @@ import { submitQuizAttempt } from "./quiz.service";
 
 describe("LMS Phase 6: End-to-End Automated Learner Lifecycle", () => {
   it("completes full end-to-end agentic workflow across all tool groups", async () => {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    await useTestDb();
 
     // Mock embedder: 1536-dim deterministic vectors
     setEmbedderForTests({

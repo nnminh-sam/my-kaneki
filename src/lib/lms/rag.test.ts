@@ -1,8 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
-import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
+import { useTestDb } from "@/test/shared-db";
 import { createSubject, createSource } from "./repo";
 import { indexSource, searchRag, resetVectorColumnCacheForTests } from "./rag";
 import { ingestUserFile } from "./ingest";
@@ -11,29 +9,7 @@ import { setEmbedderForTests, createDeterministicFakeEmbedder } from "./embeddin
 describe("LMS RAG Indexing & Ingestion Service (PGlite)", () => {
   it("indexes sources, performs hybrid search, and enforces cross-owner isolation", async () => {
     resetVectorColumnCacheForTests();
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    // Run migrations
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    await useTestDb();
 
     // Use deterministic fake embedder
     setEmbedderForTests(createDeterministicFakeEmbedder());

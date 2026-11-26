@@ -1,8 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { PGlite } from "@electric-sql/pglite";
+import { useTestDb } from "@/test/shared-db";
 import { setDbForTests } from "@/lib/db";
-import { migrate } from "@/lib/migrate";
 import { setEmbedderForTests, createDeterministicFakeEmbedder } from "./embeddings";
 import {
   createLearningSubject,
@@ -42,28 +41,7 @@ import type { QuizPromptPayload } from "./types";
 
 describe("LMS Phase 3: Path Engine, Placement, Mastery Gates, and SRS (PGlite)", () => {
   async function setupTestDb() {
-    const pg = new PGlite();
-    setDbForTests({
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-      transaction: async (statements) => {
-        const out: Record<string, unknown>[][] = [];
-        for (const s of statements) {
-          out.push(
-            (await pg.query(s.text, s.params)).rows as Record<string, unknown>[],
-          );
-        }
-        return out;
-      },
-    });
-
-    await migrate({
-      exec: async (sql) => {
-        await pg.exec(sql);
-      },
-      query: async (text, params) =>
-        (await pg.query(text, params)).rows as Record<string, unknown>[],
-    });
+    const { pg } = await useTestDb();
 
     setEmbedderForTests(createDeterministicFakeEmbedder(1536));
     return pg;
