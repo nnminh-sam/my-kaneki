@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { currentOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import { getSubjectBySlug, getSubjectReviewStats } from "@/lib/lms/repo";
 import { getDueReviews } from "@/lib/lms/review.service";
 import { getSubjectOverview } from "@/lib/lms/subjects";
@@ -13,6 +14,10 @@ export default async function ReviewPage({ params }: ReviewPageProps) {
   const owner = await currentOwnerId();
   if (owner === null) {
     redirect("/login");
+  }
+
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    notFound();
   }
 
   const { slug } = await params;

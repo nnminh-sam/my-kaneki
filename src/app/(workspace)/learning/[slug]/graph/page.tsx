@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { currentOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import { getSubjectBySlug, listNodes, listNodeEdges } from "@/lib/lms/repo";
 import { PresentationGraphView } from "@/components/lms/PresentationGraphView";
 
@@ -13,6 +14,10 @@ export default async function PresentationGraphPage({
   const owner = await currentOwnerId();
   if (owner === null) {
     redirect("/login");
+  }
+
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    notFound();
   }
 
   const { slug } = await params;

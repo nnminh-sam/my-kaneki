@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { currentOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import {
   getSubjectBySlug,
   listQuizzesForSubject,
@@ -18,6 +19,10 @@ export default async function QuizRedirectPage({
   const owner = await currentOwnerId();
   if (owner === null) {
     redirect("/login");
+  }
+
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    notFound();
   }
 
   const { slug } = await params;

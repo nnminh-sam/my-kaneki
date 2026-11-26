@@ -22,7 +22,7 @@ const GITHUB_LABELS: Partial<Record<ErrorCode, string>> = {
  * Agent tools for one authenticated owner. Failures are returned as `{success:false, error}`
  * so the model can react; nothing here throws into the stream.
  */
-export function createAgentTools(ownerId: string) {
+export function createAgentTools(ownerId: string, options?: { lms?: boolean }) {
   return {
     addTodo: tool({
       description: "Add a todo item to the user's todo list.",
@@ -114,6 +114,6 @@ export function createAgentTools(ownerId: string) {
       },
     }),
 
-    ...createLmsAgentTools(ownerId),
+    ...(options?.lms !== false ? createLmsAgentTools(ownerId) : {}),
   };
 }

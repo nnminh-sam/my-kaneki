@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { currentOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import {
   getSubjectBySlug,
   listSubjects,
@@ -24,6 +25,10 @@ export default async function SubjectLayout({
   const owner = await currentOwnerId();
   if (owner === null) {
     redirect("/login");
+  }
+
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    notFound();
   }
 
   const { slug } = await params;

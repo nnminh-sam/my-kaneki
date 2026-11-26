@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { authMode, authenticate, bearerToken, SESSION_COOKIE } from "@/lib/auth";
+import { requestOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import { getSubjectBySlug, listSources, getSourceById } from "@/lib/lms/repo";
 import { ingestUserFile } from "@/lib/lms/ingest";
 import { getDb } from "@/lib/db";
@@ -7,24 +8,13 @@ import { removeSubjectSourceMetadata } from "@/lib/lms/github-knowledge";
 import { deleteFile } from "@/actions/github";
 import type { SourcePerspective } from "@/lib/lms/types";
 
-async function getOwner(req: Request): Promise<string | null> {
-  const mode = authMode();
-  if (mode === "open") return "";
-  if (mode === "locked") return null;
-
-  const authHeader = req.headers.get("authorization");
-  const cookieHeader = req.headers.get("cookie");
-  const cookieMatch = cookieHeader?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
-  const sessionCookie = cookieMatch ? cookieMatch[1] : undefined;
-
-  const session = authenticate({ authorization: authHeader, sessionCookie });
-  return session?.sub ?? null;
-}
-
 export async function GET(req: NextRequest) {
-  const owner = await getOwner(req);
+  const owner = await requestOwnerId(req);
   if (owner === null) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return NextResponse.json({ error: "feature_disabled", feature: "lms" }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -43,9 +33,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const owner = await getOwner(req);
+  const owner = await requestOwnerId(req);
   if (owner === null) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return NextResponse.json({ error: "feature_disabled", feature: "lms" }, { status: 403 });
   }
 
   try {
@@ -91,9 +84,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const owner = await getOwner(req);
+  const owner = await requestOwnerId(req);
   if (owner === null) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    return NextResponse.json({ error: "feature_disabled", feature: "lms" }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);

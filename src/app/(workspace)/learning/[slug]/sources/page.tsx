@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { currentOwnerId } from "@/lib/owner";
+import { isFeatureEnabled } from "@/lib/features";
 import {
   getSubjectBySlug,
   listSources,
@@ -15,6 +16,10 @@ export default async function SourcesPage({ params }: SourcesPageProps) {
   const owner = await currentOwnerId();
   if (owner === null) {
     redirect("/login");
+  }
+
+  if (!(await isFeatureEnabled(owner, "lms"))) {
+    notFound();
   }
 
   const { slug } = await params;

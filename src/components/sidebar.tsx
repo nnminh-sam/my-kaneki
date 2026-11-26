@@ -15,6 +15,7 @@ import {
   LogIn,
   LogOut,
   Rocket,
+  Settings,
   ShieldCheck,
   Terminal,
   Wallet,
@@ -61,6 +62,8 @@ function WorkspaceIcon({
       return <Cpu className={className} />;
     case "audit":
       return <ShieldCheck className={className} />;
+    case "settings":
+      return <Settings className={className} />;
   }
 }
 
@@ -117,10 +120,12 @@ export function Sidebar({
   mode,
   user,
   theme,
+  hiddenNavIds = [],
 }: {
   mode: AuthMode;
   user: { email: string; name?: string } | null;
   theme: Theme;
+  hiddenNavIds?: string[];
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -259,7 +264,7 @@ export function Sidebar({
             {/* Internal Workspace Section */}
             <div>
               <nav aria-label="Workspace navigation" className="space-y-0.5">
-                {WORKSPACE_NAV_ITEMS.map((item) => {
+                {WORKSPACE_NAV_ITEMS.filter((item) => !hiddenNavIds.includes(item.id)).map((item) => {
                   const active = isRouteActive(pathname, item.href);
                   return (
                     <Link
